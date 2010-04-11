@@ -1,0 +1,38 @@
+#######################################
+# Syntax Coloring Map For Touch
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+Touch	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+screenPoint	KEYWORD2
+displayPoint	KEYWORD2
+
+getMatrix	KEYWORD2
+setMatrix	KEYWORD2
+calbrateMatrix	KEYWORD2
+
+sampling	KEYWORD2
+readPoint	KEYWORD2
+
+action	KEYWORD2
+callBack	KEYWORD2
+
+init	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+touch	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################

@@ -1,0 +1,44 @@
+#######################################
+# Syntax Coloring Map For Node
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+Node	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+num	KEYWORD2
+pos_x	KEYWORD2
+pos_y	KEYWORD2
+width	KEYWORD2
+height	KEYWORD2
+flags	KEYWORD2
+
+addChild	KEYWORD2
+getParent	KEYWORD2
+getSibling	KEYWORD2
+getChild	KEYWORD2
+
+getName	KEYWORD2
+getLength	KEYWORD2
+
+setCallBack	KEYWORD2
+setDisplay	KEYWORD2
+
+checkAction	KEYWORD2
+showNodes	KEYWORD2
+
+init	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################

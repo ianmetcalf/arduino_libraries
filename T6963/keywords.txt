@@ -1,0 +1,56 @@
+#######################################
+# Syntax Coloring Map For T6963
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+T6963	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+_FW	KEYWORD2
+_FH	KEYWORD2
+
+readStatus	KEYWORD2
+readData	KEYWORD2
+writeCommand	KEYWORD2
+writeData	KEYWORD2
+
+setMemMode	KEYWORD2
+setDispMode	KEYWORD2
+setAddressPointer	KEYWORD2
+setCursorPointer	KEYWORD2
+setCursorPattern	KEYWORD2
+
+gotoText	KEYWORD2
+gotoGraphic	KEYWORD2
+
+writeDisplay	KEYWORD2
+readDisplay	KEYWORD2
+
+writeChar	KEYWORD2
+writeString	KEYWORD2
+writeStringPgm	KEYWORD2
+
+setPixel	KEYWORD2
+clearPixel	KEYWORD2
+
+clearText	KEYWORD2
+clearGraphic	KEYWORD2
+clearCG	KEYWORD2
+
+init	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+LCD	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
