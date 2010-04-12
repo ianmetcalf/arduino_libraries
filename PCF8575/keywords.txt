@@ -1,0 +1,39 @@
+#######################################
+# Syntax Coloring Map For Xport
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+PCF8575	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+mode	KEYWORD2
+buffer	KEYWORD2
+
+read	KEYWORD2
+write	KEYWORD2
+
+set	KEYWORD2
+clear	KEYWORD2
+toggle	KEYWORD2
+
+setPin	KEYWORD2
+clearPin	KEYWORD2
+togglePin	KEYWORD2
+
+readPin	KEYWORD2
+
+init	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################

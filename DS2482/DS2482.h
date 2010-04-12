@@ -28,14 +28,14 @@ class DS2482
 		
 		uint8_t setChannel(uint8_t);
 		
-		uint8_t oneWireReset(void);
+		uint8_t wireReset(void);
 		
-		uint8_t oneWireWrite(uint8_t);
-		uint8_t oneWireRead(void);
+		uint8_t wireWrite(uint8_t);
+		uint8_t wireRead(void);
 		
-		uint8_t oneWireWriteBit(uint8_t);
-		uint8_t oneWireReadBit(void);
-		uint8_t oneWireTriplet(uint8_t);
+		uint8_t wireWriteBit(uint8_t);
+		uint8_t wireReadBit(void);
+		uint8_t wireTriplet(uint8_t);
 		
 		uint8_t romRead(uint8_t*);
 		uint8_t romMatch(uint8_t*);
@@ -74,15 +74,8 @@ class DS2482
 		uint8_t lastBranch;
 		uint8_t searchDone;
 		
-		void reset(void);
-		uint8_t read(void);
-		void setReadPtr(uint8_t);
-		
-		uint8_t getStatus(void);
-		uint8_t getData(void);
-		uint8_t getChannel(void);
-		uint8_t getConfig(void);
-		
+		uint8_t reset(void);
+		uint8_t getRegister(uint8_t);
 		uint8_t busy(uint8_t);
 		uint8_t writeConfig(uint8_t);
 };
