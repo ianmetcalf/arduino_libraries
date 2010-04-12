@@ -29,7 +29,6 @@ class DS2482
 		uint8_t setChannel(uint8_t);
 		
 		uint8_t wireReset(void);
-		
 		uint8_t wireWrite(uint8_t);
 		uint8_t wireRead(void);
 		

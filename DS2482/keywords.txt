@@ -12,6 +12,37 @@ DS2482	KEYWORD1
 # Methods and Functions (KEYWORD2)
 #######################################
 
+setChannel	KEYWORD2
+
+wireReset	KEYWORD2
+wireWrite	KEYWORD2
+wireRead	KEYWORD2
+
+wireWriteBit	KEYWORD2
+wireReadBit	KEYWORD2
+wireTriplet	KEYWORD2
+
+romRead	KEYWORD2
+romMatch	KEYWORD2
+romSkip	KEYWORD2
+romSearch	KEYWORD2
+
+tempSearch	KEYWORD2
+
+tempConversion	KEYWORD2
+tempConversionAll	KEYWORD2
+
+tempWriteScratchpad	KEYWORD2
+tempReadScratchpad	KEYWORD2
+
+tempWriteEEprom	KEYWORD2
+tempReadEEprom	KEYWORD2
+
+tempPowerMode	KEYWORD2
+tempPowerModeAll	KEYWORD2
+
+init	KEYWORD2
+
 #######################################
 # Instances (KEYWORD2)
 #######################################

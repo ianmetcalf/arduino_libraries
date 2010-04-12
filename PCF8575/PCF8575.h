@@ -27,6 +27,7 @@ class PCF8575
 		void setPin(uint8_t);
 		void clearPin(uint8_t);
 		void togglePin(uint8_t);
+		
 		uint8_t readPin(uint8_t);
 		
 		void init(void);
