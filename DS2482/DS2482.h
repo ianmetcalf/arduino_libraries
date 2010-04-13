@@ -21,6 +21,26 @@
 
 #include <inttypes.h>
 
+#define DS2482_EEPROM_ADDRESS	((E2END + 1) >> 1)
+
+typedef struct Device
+{
+	uint8_t addr[8];
+	struct {
+		uint8_t powered		:1;
+		uint8_t channel		:3;
+		uint8_t resolution	:2;
+	} config;
+} DEVICE;
+
+typedef struct Scratch
+{
+	int16_t temp;
+	uint8_t alarmHigh;
+	uint8_t alarmLow;
+	uint8_t config;
+} SCRATCH;
+
 class DS2482
 {
 	public:
@@ -42,23 +62,30 @@ class DS2482
 		uint8_t romSearch(uint8_t*, uint8_t);
 		uint8_t romSearch(uint8_t*);
 		
-		uint8_t tempSearch(uint8_t*);
+		uint8_t tempSearch(Device&, Scratch&);
 		
-		uint8_t tempConversion(uint8_t*, uint8_t, uint8_t);
+		uint8_t tempConversion(Device&);
 		uint8_t tempConversionAll(uint8_t, uint8_t);
 		
-		uint8_t tempWriteScratchpad(uint8_t*, uint8_t*);
-		uint8_t tempReadScratchpad(uint8_t*, uint8_t*);
+		uint8_t tempWriteScratchpad(Device&, Scratch&);
+		uint8_t tempReadScratchpad(Device&, Scratch&);
 		
-		uint8_t tempWriteEEprom(uint8_t*);
-		uint8_t tempReadEEprom(uint8_t*);
+		uint8_t tempStoreEE(Device&);
+		uint8_t tempLoadEE(Device&);
 		
-		uint8_t tempPowerMode(uint8_t*);
+		uint8_t tempPowerMode(Device&);
 		uint8_t tempPowerModeAll(void);
 		
+		void eepromLoadCount(void);
+		void eepromStoreCount(void);
+		void eepromResetCount(uint8_t);
 		
-		int16_t tempCelsius(uint8_t*);
-		int16_t tempFahrenheit(uint8_t*);
+		uint8_t eepromCount(void);
+		
+		uint8_t eepromLoadSensor(DEVICE&, uint8_t);
+		uint8_t eepromStoreSensor(DEVICE&);
+		
+		int16_t tempFahrenheit(Scratch&);
 		
 		uint8_t test(void);
 		
@@ -68,9 +95,10 @@ class DS2482
 		uint8_t _address;
 		uint8_t _config;
 		uint8_t _channel;
+		uint8_t _eeprom;
 		
 		uint8_t search_rom[8];
-		uint8_t lastBranch;
+		uint8_t searchLast;
 		uint8_t searchDone;
 		
 		uint8_t reset(void);
