@@ -50,30 +50,48 @@ DS2482::DS2482(uint8_t address)
 	_address = (DS2482_I2C_ADDRESS | address) << 1;
 }
 
+uint8_t DS2482::getError(void)
+{
+	uint8_t error = _error;
+	
+	_error = ERROR_NONE;
+	
+	return error;
+}
+
+
+
+
+
+
+
+//*************************************************************************************************
+//
+//										Basic Chip Functions
+//
+//*************************************************************************************************
+
 //-------------------------------------------------------------------------------------------------
 //
-// Reset Device
+// Reset the chip
 //
 //	Input	none
 //
-//	Output	status register
+//	Output	none
 //
 //-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::reset(void)
+void DS2482::chipReset(void)
 {
-	uint8_t status;
-	
 	_channel = 0;
+	_config = 0;
 	
 	i2c_start_wait(_address | I2C_WRITE);
 	i2c_write(DS2482_DEVICE_RESET);
 	
 	i2c_rep_start(_address | I2C_READ);
-	status = i2c_readNak();
+	_status = i2c_readNak();
 	i2c_stop();
-	
-	return status;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -86,7 +104,7 @@ uint8_t DS2482::reset(void)
 //
 //-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::getRegister(uint8_t reg)
+uint8_t DS2482::chipRegister(uint8_t reg)
 {
 	uint8_t result;
 	
@@ -111,49 +129,55 @@ uint8_t DS2482::getRegister(uint8_t reg)
 
 //-------------------------------------------------------------------------------------------------
 //
-// Wait until not busy or timeout
+// Wait until the chip is not busy or it times out
 //
 //	Input	set: set the register pointer T/F
 //
-//	Output	status register
+//	Output	none
 //
 //-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::busy(uint8_t set)
+void DS2482::chipBusy(uint8_t set)
 {
-	uint8_t status = getRegister((set) ? DS2482_STATUS_REG : 0);
-	uint16_t count = 1000;
+	uint16_t timeout = 1000;
 	
-	while ((status & DS2482_STATUS_BUSY) && count)
+	_status = chipRegister((set) ? DS2482_STATUS_REG : 0);
+	
+	while ((_status & DS2482_STATUS_BUSY) && (timeout > 0))
 	{
 		delayMicroseconds(20);
-		status = getRegister(0);
-		count--;
+		_status = chipRegister(0);
+		timeout--;
 	}
 	
-	return status;
+	if (_status & DS2482_STATUS_BUSY)
+	{
+		_error = ERROR_TIMEOUT;
+	}
 }
 
 //-------------------------------------------------------------------------------------------------
 //
-// Write configuration register
+// Write configuration to chip
 //
-//	Input	config: configuration byte
+//	Input	config: configuration nibble
 //
 //	Output	0 fail
 //			1 success
 //
 //-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::writeConfig(uint8_t config)
+uint8_t DS2482::chipConfigure(uint8_t config)
 {
-	if (!(busy(1) & DS2482_STATUS_BUSY))
+	chipBusy(1);
+	
+	if (!_error)
 	{
 		uint8_t result;
 		
 		i2c_start_wait(_address | I2C_WRITE);
 		i2c_write(DS2482_WRITE_CONFIG);
-		i2c_write(config & ((~config) << 4));
+		i2c_write(config | ((~config) << 4));
 		
 		i2c_rep_start(_address | I2C_READ);
 		result = i2c_readNak();
@@ -171,7 +195,7 @@ uint8_t DS2482::writeConfig(uint8_t config)
 
 //-------------------------------------------------------------------------------------------------
 //
-// Set channel
+// Set chip channel
 //
 //	Input	channel: one wire channel
 //
@@ -180,9 +204,11 @@ uint8_t DS2482::writeConfig(uint8_t config)
 //
 //-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::setChannel(uint8_t channel)
+uint8_t DS2482::chipChannel(uint8_t channel)
 {
-	if (!(busy(1) & DS2482_STATUS_BUSY))
+	chipBusy(1);
+	
+	if (!_error && channel < DS2482_TOTAL_CHANNELS)
 	{
 		uint8_t check, result;
 		
@@ -247,6 +273,20 @@ uint8_t DS2482::setChannel(uint8_t channel)
 	return 0;
 }
 
+
+
+
+
+
+
+
+
+//*************************************************************************************************
+//
+//										Basic OneWire Functions
+//
+//*************************************************************************************************
+
 //-------------------------------------------------------------------------------------------------
 //
 // Reset OneWire
@@ -260,13 +300,31 @@ uint8_t DS2482::setChannel(uint8_t channel)
 
 uint8_t DS2482::wireReset(void)
 {
-	if (!(busy(1) & DS2482_STATUS_BUSY))
+	chipBusy(1);
+	
+	if (!_error)
 	{
 		i2c_start_wait(_address | I2C_WRITE);
 		i2c_write(DS2482_ONE_WIRE_RESET);
 		i2c_stop();
 		
-		return 1;
+		chipBusy(0);
+		
+		if (!_error)
+		{
+			if (_status &  DS2482_STATUS_SD)
+			{
+				_error = ERROR_SHORT_FOUND;
+			}
+			else if (!(_status & DS2482_STATUS_PPD))
+			{
+				_error = ERROR_NO_DEVICE;
+			}
+			else
+			{
+				return 1;
+			}
+		}
 	}
 	
 	return 0;
@@ -285,7 +343,9 @@ uint8_t DS2482::wireReset(void)
 
 uint8_t DS2482::wireWrite(uint8_t data)
 {
-	if (!(busy(1) & DS2482_STATUS_BUSY))
+	chipBusy(1);
+	
+	if (!_error)
 	{
 		i2c_start_wait(_address | I2C_WRITE);
 		i2c_write(DS2482_ONE_WIRE_WRITE_BYTE);
@@ -310,15 +370,19 @@ uint8_t DS2482::wireWrite(uint8_t data)
 
 uint8_t DS2482::wireRead(void)
 {
-	if (!(busy(1) & DS2482_STATUS_BUSY))
+	chipBusy(1);
+	
+	if (!_error)
 	{
 		i2c_start_wait(_address | I2C_WRITE);
 		i2c_write(DS2482_ONE_WIRE_READ_BYTE);
 		i2c_stop();
 		
-		if (!(busy(0) & DS2482_STATUS_BUSY))
+		chipBusy(0);
+		
+		if (!_error)
 		{
-			return getRegister(DS2482_DATA_REG);
+			return chipRegister(DS2482_DATA_REG);
 		}
 	}
 	
@@ -338,7 +402,9 @@ uint8_t DS2482::wireRead(void)
 
 uint8_t DS2482::wireWriteBit(uint8_t bit)
 {
-	if (!(busy(1) & DS2482_STATUS_BUSY))
+	chipBusy(1);
+	
+	if (!_error)
 	{
 		i2c_start_wait(_address | I2C_WRITE);
 		i2c_write(DS2482_ONE_WIRE_SINGLE_BIT);
@@ -365,7 +431,12 @@ uint8_t DS2482::wireReadBit(void)
 {
 	if (wireWriteBit(1))
 	{
-		return (busy(0) & DS2482_STATUS_SBR) ? 1 : 0;
+		chipBusy(0);
+		
+		if (!_error)
+		{
+			return (_status & DS2482_STATUS_SBR) ? 1 : 0;
+		}
 	}
 	
 	return 0;
@@ -384,18 +455,42 @@ uint8_t DS2482::wireReadBit(void)
 
 uint8_t DS2482::wireTriplet(uint8_t dir)
 {
-	if (!(busy(0) & DS2482_STATUS_BUSY))
+	chipBusy(0);
+	
+	if (!_error)
 	{
 		i2c_start_wait(_address | I2C_WRITE);
 		i2c_write(DS2482_ONE_WIRE_TRIPLET);
 		i2c_write((dir) ? 0x80 : 0);
 		i2c_stop();
 		
-		return 1;
+		chipBusy(0);
+		
+		if (!_error)
+		{
+			return 1;
+		}
 	}
 	
 	return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+//*************************************************************************************************
+//
+//										Basic Device ROM Functions
+//
+//*************************************************************************************************
 
 //-------------------------------------------------------------------------------------------------
 //
@@ -410,12 +505,7 @@ uint8_t DS2482::wireTriplet(uint8_t dir)
 
 uint8_t DS2482::romRead(uint8_t *address)
 {
-	uint8_t status;
-	
-	wireReset();
-	status = busy(0);
-	
-	if (!(status & DS2482_STATUS_BUSY) && (status & DS2482_STATUS_PPD) && wireWrite(ONE_WIRE_READ_ROM))
+	if (wireReset() && wireWrite(ONE_WIRE_READ_ROM))
 	{
 		uint8_t crc, i;
 		
@@ -447,12 +537,7 @@ uint8_t DS2482::romRead(uint8_t *address)
 
 uint8_t DS2482::romMatch(uint8_t *address)
 {
-	uint8_t status;
-	
-	wireReset();
-	status = busy(0);
-	
-	if (!(status & DS2482_STATUS_BUSY) && (status & DS2482_STATUS_PPD) && wireWrite(ONE_WIRE_MATCH_ROM))
+	if (wireReset() && wireWrite(ONE_WIRE_MATCH_ROM))
 	{
 		uint8_t i;
 		
@@ -461,7 +546,10 @@ uint8_t DS2482::romMatch(uint8_t *address)
 			wireWrite(address[i]);
 		}
 		
-		return 1;
+		if (!_error)
+		{
+			return 1;
+		}
 	}
 	
 	return 0;
@@ -480,12 +568,7 @@ uint8_t DS2482::romMatch(uint8_t *address)
 
 uint8_t DS2482::romSkip(void)
 {
-	uint8_t status;
-	
-	wireReset();
-	status = busy(0);
-	
-	if (!(status & DS2482_STATUS_BUSY) && (status & DS2482_STATUS_PPD) && wireWrite(ONE_WIRE_SKIP_ROM))
+	if (wireReset() && wireWrite(ONE_WIRE_SKIP_ROM))
 	{
 		return 1;
 	}
@@ -507,9 +590,7 @@ uint8_t DS2482::romSkip(void)
 
 uint8_t DS2482::romSearch(uint8_t *address, uint8_t family)
 {
-	uint8_t status;
-	
-	if (searchDone)
+	if (searchDone == 1)
 	{
 		uint8_t i;
 		
@@ -532,15 +613,13 @@ uint8_t DS2482::romSearch(uint8_t *address, uint8_t family)
 		searchDone = 0;
 	}
 	
-	wireReset();
-	status = busy(0);
-	
-	if (!(status & DS2482_STATUS_BUSY) && (status & DS2482_STATUS_PPD) && wireWrite(ONE_WIRE_SEARCH_ROM))
+	if (wireReset() && wireWrite(ONE_WIRE_SEARCH_ROM))
 	{
-		uint8_t lastZero, i;
+		uint8_t lastZero, count, crc, i;
 		
-		uint8_t count = 0;
-		uint8_t crc = 0;
+		lastZero = 0;
+		count = 0;
+		crc = 0;
 		
 		for (i = 0; i < 8; i++)
 		{
@@ -552,12 +631,15 @@ uint8_t DS2482::romSearch(uint8_t *address, uint8_t family)
 				
 				dir = (count < searchLast) ? (search_rom[i] & romMask) : ((count == searchLast) ? 1 : 0);
 				
-				wireTriplet(dir);
-				status = busy(0);
+				if (!wireTriplet(dir))
+				{
+					searchDone = 1;
+					return 0;
+				}
 				
-				sbr = (status & DS2482_STATUS_SBR);
-				tsb = (status & DS2482_STATUS_TSB);
-				dir = (status & DS2482_STATUS_DIR);
+				sbr = (_status & DS2482_STATUS_SBR);
+				tsb = (_status & DS2482_STATUS_TSB);
+				dir = (_status & DS2482_STATUS_DIR);
 				
 				if (sbr && tsb)
 				{
@@ -614,206 +696,23 @@ uint8_t DS2482::romSearch(uint8_t *address)
 	return romSearch(address, 0);
 }
 
-//-------------------------------------------------------------------------------------------------
-//
-// Search OneWire for temperature devices
-//
-//	Input	&sensor: reference to device data
-//			&scratch: reference to scratchpad
-//
-//	Output	0 fail
-//			1 success
-//
-//-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::tempSearch(Device &sensor, Scratch &scratch)
-{
-	if (romSearch(sensor.addr, DS18B20_FAMILY_CODE))
-	{
-		sensor.config.channel = _channel & 0x07;
-		sensor.config.powered = tempPowerMode(sensor) ? 0x01 : 0;
-		
-		if (tempReadScratchpad(sensor, scratch))
-		{
-			sensor.config.resolution = (scratch.config DS18B20_CONFIG_RESOLUTION_SHIFT) & 0x03;
-			
-			return 1;
-		}
-	}
-	
-	return 0;
-}
 
-//-------------------------------------------------------------------------------------------------
-//
-// Initiate temperature conversion
-//
-//	Input	&sensor: reference to device data
-//
-//	Output	0 fail
-//			1 success
-//
-//-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::tempConversion(Device &sensor)
-{
-	if (sensor.addr[0] == DS18B20_FAMILY_CODE && romMatch(sensor.addr) && wireWrite(DS18B20_CONVERT_TEMP))
-	{
-		if (sensor.config.powered)
-		{
-			while(!wireReadBit())
-			{
-				delayMicroseconds(20);
-			}
-		}
-		else
-		{
-			writeConfig(_config | DS2482_CONFIG_SPU);
-			delay(94 << sensor.config.resolution);
-			writeConfig(_config & ~DS2482_CONFIG_SPU);
-		}
-		
-		return 1;
-	}
-	
-	return 0;
-}
 
-uint8_t DS2482::tempConversionAll(uint8_t powered, uint8_t resolution)
-{
-	if (romSkip() && wireWrite(DS18B20_CONVERT_TEMP))
-	{
-		if (powered)
-		{
-			while(!wireReadBit())
-			{
-				delayMicroseconds(20);
-			}
-		}
-		else
-		{
-			writeConfig(_config | DS2482_CONFIG_SPU);
-			delay(94 << resolution);
-			writeConfig(_config & ~DS2482_CONFIG_SPU);
-		}
-		
-		return 1;
-	}
-	
-	return 0;
-}
 
-//-------------------------------------------------------------------------------------------------
-//
-// Write scratchpad to temperature device
-//
-//	Input	&sensor: reference to device data
-//			&scratch: reference to scratchpad
-//
-//	Output	0 fail
-//			1 success
-//
-//-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::tempWriteScratchpad(Device &sensor, Scratch &scratch)
-{
-	if (sensor.addr[0] == DS18B20_FAMILY_CODE && romMatch(sensor.addr) && wireWrite(DS18B20_WRITE_SCRATCHPAD))
-	{
-		wireWrite(scratch.alarmHigh);
-		wireWrite(scratch.alarmLow);
-		wireWrite(scratch.config);
-		
-		return 1;
-	}
-	
-	return 0;
-}
 
-//-------------------------------------------------------------------------------------------------
-//
-// Read temperature device scratchpad
-//
-//	Input	&sensor: reference to device data
-//			&scratch: reference to scratchpad
-//
-//	Output	0 fail
-//			1 success
-//
-//-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::tempReadScratchpad(Device &sensor, Scratch &scratch)
-{
-	if (sensor.addr[0] == DS18B20_FAMILY_CODE && romMatch(sensor.addr) && wireWrite(DS18B20_READ_SCRATCHPAD))
-	{
-		uint8_t scratch_buf[9];
-		uint8_t i;
-		
-		uint8_t crc = 0;
-		
-		for (i = 0; i < 9; i++)
-		{
-			scratch_buf[i] = wireRead();
-			crc = _crc_ibutton_update(crc, scratch_buf[i]);
-		}
-		
-		if (crc == 0)
-		{
-			scratch.temp = scratch_buf[DS18B20_SCRATCHPAD_TEMP_LSB];
-			scratch.temp |= ((int16_t)scratch_buf[DS18B20_SCRATCHPAD_TEMP_MSB]) << 8;
-			
-			scratch.alarmHigh = scratch_buf[DS18B20_SCRATCHPAD_HIGH_ALARM];
-			scratch.alarmLow = scratch_buf[DS18B20_SCRATCHPAD_LOW_ALARM];
-			
-			scratch.config = scratch_buf[DS18B20_SCRATCHPAD_CONFIG_REG];
-			
-			return 1;
-		}
-	}
-	
-	return 0;
-}
 
-//-------------------------------------------------------------------------------------------------
-//
-// Store scratchpad to device EEPROM
-//
-//	Input	&sensor: reference to device data
-//
-//	Output	0 fail
-//			1 success
-//
-//-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::tempStoreEE(Device &sensor)
-{
-	if (sensor.addr[0] == DS18B20_FAMILY_CODE && romMatch(sensor.addr) && wireWrite(DS18B20_COPY_SCRATCHPAD))
-	{
-		return 1;
-	}
-	
-	return 0;
-}
 
-//-------------------------------------------------------------------------------------------------
-//
-// Load device EEPROM to scratchpad
-//
-//	Input	&sensor: reference to device data
-//
-//	Output	0 fail
-//			1 success
-//
-//-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::tempLoadEE(Device &sensor)
-{
-	if (sensor.addr[0] == DS18B20_FAMILY_CODE && romMatch(sensor.addr) && wireWrite(DS18B20_RECALL_EEPROM))
-	{
-		return 1;
-	}
-	
-	return 0;
-}
+//*************************************************************************************************
+//
+//										Temperature Sensor Functions
+//
+//*************************************************************************************************
 
 //-------------------------------------------------------------------------------------------------
 //
@@ -848,94 +747,39 @@ uint8_t DS2482::tempPowerModeAll(void)
 
 //-------------------------------------------------------------------------------------------------
 //
-// Load the device count from Eeprom
-//
-//	Input	none
-//
-//	Output	none
-//
-//-------------------------------------------------------------------------------------------------
-
-void DS2482::eepromLoadCount(void)
-{
-	_eeprom = eeprom_read_byte((const uint8_t*)DS2482_EEPROM_ADDRESS);
-}
-
-//-------------------------------------------------------------------------------------------------
-//
-// Store the device count to Eeprom
-//
-//	Input	none
-//
-//	Output	none
-//
-//-------------------------------------------------------------------------------------------------
-
-void DS2482::eepromStoreCount(void)
-{
-	eeprom_write_byte((uint8_t*)DS2482_EEPROM_ADDRESS, _eeprom);
-}
-
-//-------------------------------------------------------------------------------------------------
-//
-// Reset the device count
-//
-//	Input	store reset Y/N
-//
-//	Output	none
-//
-//-------------------------------------------------------------------------------------------------
-
-void DS2482::eepromResetCount(uint8_t store)
-{
-	_eeprom = 0;
-	
-	if (store)
-	{
-		eepromStoreCount();
-	}
-}
-
-//-------------------------------------------------------------------------------------------------
-//
-// Get the device count
-//
-//	Input	none
-//
-//	Output	device count
-//
-//-------------------------------------------------------------------------------------------------
-
-uint8_t DS2482::eepromCount(void)
-{
-	return _eeprom;
-}
-
-//-------------------------------------------------------------------------------------------------
-//
-// Load device data from Eeprom
+// Store scratchpad to device EEPROM
 //
 //	Input	&sensor: reference to device data
-//			num: device number
 //
-//	Output	device number
-//			0: failure
+//	Output	0 fail
+//			1 success
 //
 //-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::eepromLoadSensor(DEVICE &sensor, uint8_t num)
+uint8_t DS2482::tempStoreEE(Device &sensor)
 {
-	if (num > 0 && num <= _eeprom)
+	if (sensor.addr[0] == DS18B20_FAMILY_CODE && romMatch(sensor.addr))
 	{
-		uint16_t address;
-		
-		address = DS2482_EEPROM_ADDRESS + ((num - 1) * sizeof(DEVICE)) + 1;
-		
-		if ((address + sizeof(DEVICE)) <= E2END)
+		if (!sensor.config.powered && !chipConfigure(_config | DS2482_CONFIG_SPU))
 		{
-			eeprom_read_block((void*)&sensor, (const void*)address, sizeof(DEVICE));
+			return 0;
+		}
+		
+		if (wireWrite(DS18B20_COPY_SCRATCHPAD))
+		{
+			if (sensor.config.powered)
+			{
+				while(!wireReadBit())
+				{
+					delayMicroseconds(20);
+				}
+			}
+			else
+			{
+				delay(10);
+			}
 			
-			return num;
+			return 1;
 		}
 	}
 	
@@ -944,28 +788,237 @@ uint8_t DS2482::eepromLoadSensor(DEVICE &sensor, uint8_t num)
 
 //-------------------------------------------------------------------------------------------------
 //
-// Store device data to Eeprom
+// Load device EEPROM to scratchpad
 //
 //	Input	&sensor: reference to device data
 //
-//	Output	device number
-//			0: failure
+//	Output	0 fail
+//			1 success
 //
 //-------------------------------------------------------------------------------------------------
 
-uint8_t DS2482::eepromStoreSensor(DEVICE &sensor)
+uint8_t DS2482::tempLoadEE(Device &sensor)
 {
-	uint16_t address;
-	
-	address = DS2482_EEPROM_ADDRESS + ((_eeprom + 1) * sizeof(DEVICE)) + 1;
-	
-	if ((address + sizeof(DEVICE)) <= E2END)
+	if (sensor.addr[0] == DS18B20_FAMILY_CODE && romMatch(sensor.addr) && wireWrite(DS18B20_RECALL_EEPROM))
 	{
-		eeprom_write_block((const void*)&sensor, (void*)address, sizeof(DEVICE));
+		return 1;
+	}
+	
+	return 0;
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Initiate temperature conversion for device
+//
+//	Input	&sensor: reference to device data
+//
+//	Output	0 fail
+//			1 success
+//
+//-------------------------------------------------------------------------------------------------
+
+uint8_t DS2482::tempConversion(Device &sensor)
+{
+	if (_channel != sensor.config.channel && !chipChannel(sensor.config.channel))
+	{
+		return 0;
+	}
+	
+	if (sensor.addr[0] == DS18B20_FAMILY_CODE && romMatch(sensor.addr))
+	{
+		if (!sensor.config.powered && !chipConfigure(_config | DS2482_CONFIG_SPU))
+		{
+			return 0;
+		}
 		
-		_eeprom++;
+		if (wireWrite(DS18B20_CONVERT_TEMP))
+		{
+			if (sensor.config.powered)
+			{
+				while(!wireReadBit())
+				{
+					delayMicroseconds(20);
+				}
+			}
+			else
+			{
+				delay(94 << sensor.config.resolution);
+			}
+			
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Initiate temperature conversion for all devices on channel
+//
+//	Input	channel: channel to convert
+//			resolution: max resolution on channel
+//
+//	Output	0 fail
+//			1 success
+//
+//-------------------------------------------------------------------------------------------------
+
+
+uint8_t DS2482::tempConversionAll(uint8_t channel, uint8_t resolution)
+{
+	uint8_t powered;
+	
+	if (_channel != channel && !chipChannel(channel))
+	{
+		return 0;
+	}
+	
+	powered = tempPowerModeAll();
+	
+	if (romSkip())
+	{
+		if (!powered)
+		{
+			chipConfigure(_config | DS2482_CONFIG_SPU);
+		}
 		
-		return _eeprom;
+		if (wireWrite(DS18B20_CONVERT_TEMP))
+		{
+			if (powered)
+			{
+				while(!wireReadBit())
+				{
+					delayMicroseconds(20);
+				}
+			}
+			else
+			{
+				delay(94 << resolution);
+			}
+			
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Write scratchpad to temperature device
+//
+//	Input	&sensor: reference to device data
+//			&scratch: reference to scratchpad
+//
+//	Output	0 fail
+//			1 success
+//
+//-------------------------------------------------------------------------------------------------
+
+uint8_t DS2482::tempWriteScratchpad(Device &sensor, Scratch &scratch)
+{
+	if (_channel != sensor.config.channel && !chipChannel(sensor.config.channel))
+	{
+		return 0;
+	}
+	
+	if (sensor.addr[0] == DS18B20_FAMILY_CODE && romMatch(sensor.addr) && wireWrite(DS18B20_WRITE_SCRATCHPAD))
+	{
+		if (wireWrite(scratch.alarmHigh) && wireWrite(scratch.alarmLow) && wireWrite(scratch.config))
+		{
+			if (tempStoreEE(sensor))
+			{
+				return 1;
+			}
+		}
+	}
+	
+	return 0;
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Read temperature device scratchpad
+//
+//	Input	&sensor: reference to device data
+//			&scratch: reference to scratchpad
+//
+//	Output	0 fail
+//			1 success
+//
+//-------------------------------------------------------------------------------------------------
+
+uint8_t DS2482::tempReadScratchpad(Device &sensor, Scratch &scratch)
+{
+	if (_channel != sensor.config.channel && !chipChannel(sensor.config.channel))
+	{
+		return 0;
+	}
+	
+	if (sensor.addr[0] == DS18B20_FAMILY_CODE && romMatch(sensor.addr) && wireWrite(DS18B20_READ_SCRATCHPAD))
+	{
+		uint8_t scratch_buf[9];
+		uint8_t i;
+		
+		uint8_t crc = 0;
+		
+		for (i = 0; i < 9; i++)
+		{
+			scratch_buf[i] = wireRead();
+			crc = _crc_ibutton_update(crc, scratch_buf[i]);
+		}
+		
+		if (crc == 0)
+		{
+			scratch.temp[TEMP_C] = scratch_buf[DS18B20_SCRATCHPAD_TEMP_LSB];
+			scratch.temp[TEMP_C] |= ((int16_t)scratch_buf[DS18B20_SCRATCHPAD_TEMP_MSB]) << 8;
+			
+			scratch.temp[TEMP_F] = (scratch.temp[TEMP_C] * 9) / 5;
+			scratch.temp[TEMP_F] += (32 << 4);
+			
+			scratch.alarmHigh = scratch_buf[DS18B20_SCRATCHPAD_HIGH_ALARM];
+			scratch.alarmLow = scratch_buf[DS18B20_SCRATCHPAD_LOW_ALARM];
+			
+			scratch.config = scratch_buf[DS18B20_SCRATCHPAD_CONFIG_REG];
+			
+			return 1;
+		}
+		else
+		{
+			_error = ERROR_CRC_MISMATCH;
+		}
+	}
+	
+	return 0;
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Search OneWire for temperature devices
+//
+//	Input	&sensor: reference to device data
+//			&scratch: reference to scratchpad
+//
+//	Output	0 fail
+//			1 success
+//
+//-------------------------------------------------------------------------------------------------
+
+uint8_t DS2482::tempSearch(Device &sensor, Scratch &scratch)
+{
+	if (romSearch(sensor.addr, DS18B20_FAMILY_CODE))
+	{
+		sensor.config.channel = _channel & 0x07;
+		sensor.config.powered = tempPowerMode(sensor) ? 0x01 : 0;
+		
+		if (tempReadScratchpad(sensor, scratch))
+		{
+			sensor.config.resolution = (scratch.config CONFIG_RES_SHIFT) & 0x03;
+			
+			return 1;
+		}
 	}
 	
 	return 0;
@@ -980,24 +1033,21 @@ uint8_t DS2482::eepromStoreSensor(DEVICE &sensor)
 
 
 
-int16_t DS2482::tempFahrenheit(Scratch &scratch)
-{
-	int16_t temp;
-	
-	temp = (scratch.temp * 9) / 5;
-	temp += (32 << 4);
-	
-	return temp;
-}
 
-uint8_t DS2482::test(void)
-{
-	return (busy(1) & DS2482_STATUS_PPD) ? 1 : 0;
-}
+
+
+
+
+
+//*************************************************************************************************
+//
+//								Temperature Sensor Management Functions
+//
+//*************************************************************************************************
 
 //-------------------------------------------------------------------------------------------------
 //
-// DS2482 initalization
+// Reset the number of sensors to zero
 //
 //	Input	none
 //
@@ -1005,18 +1055,389 @@ uint8_t DS2482::test(void)
 //
 //-------------------------------------------------------------------------------------------------
 
+void DS2482::tempSensorReset(void)
+{
+	eepromTotal = 0;
+	eeprom_write_byte((uint8_t*)E2END, eepromTotal);
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Get the total number of sensors stored
+//
+//	Input	none
+//
+//	Output	device count
+//
+//-------------------------------------------------------------------------------------------------
+
+uint8_t DS2482::tempSensorTotal(void)
+{
+	return eepromTotal;
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Load sensor data from Eeprom
+//
+//	Input	num: device number
+//			&sensor: reference to device data
+//
+//	Output	0 fail
+//			1 success
+//
+//-------------------------------------------------------------------------------------------------
+
+uint8_t DS2482::tempSensorLoad(uint8_t num, DEVICE &sensor)
+{
+	if (num > 0 && num <= eepromTotal)
+	{
+		uint16_t offset;
+		
+		offset = num * sizeof(DEVICE);
+		
+		if (offset < DS2482_EEPROM_MAX_ALLOC)
+		{
+			uint8_t crc, i;
+			
+			eeprom_read_block((void*)&sensor, (const void*)(E2END - offset), sizeof(DEVICE));
+			
+			crc = 0;
+			
+			for (i = 0; i < 8; i++)
+			{
+				crc = _crc_ibutton_update(crc, sensor.addr[i]);
+			}
+			
+			if (crc == 0)
+			{
+				return 1;
+			}
+		}
+	}
+	
+	return 0;
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Store sensor data to Eeprom
+//
+//	Input	num: device number
+//			&sensor: reference to device data
+//
+//	Output	0 fail
+//			1 success
+//
+//-------------------------------------------------------------------------------------------------
+
+uint8_t DS2482::tempSensorStore(uint8_t num, DEVICE &sensor)
+{
+	if (num > 0 && num <= eepromTotal + 1)
+	{
+		uint16_t offset;
+		
+		offset = num * sizeof(DEVICE);
+		
+		if (offset < DS2482_EEPROM_MAX_ALLOC)
+		{
+			eeprom_write_block((const void*)&sensor, (void*)(E2END - offset), sizeof(DEVICE));
+			
+			if (num > eepromTotal)
+			{
+				eepromTotal++;
+				
+				eeprom_write_byte((uint8_t*)E2END, eepromTotal);
+			}
+			
+			return 1;
+		}
+		else
+		{
+			_error = ERROR_EEPROM_FULL;
+		}
+	}
+	
+	return 0;
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Verify sensor exists
+//
+//	Input	num: device number
+//			&sensor: reference to device data
+//
+//	Output	0 fail
+//			1 success
+//
+//-------------------------------------------------------------------------------------------------
+
+uint8_t DS2482::tempSensorVarify(uint8_t num, Device &sensor)
+{
+	uint8_t channel = sensor.config.channel;
+	
+	do
+	{
+		Scratch scratch_buff;
+		
+		if (tempReadScratchpad(sensor, scratch_buff))
+		{
+			uint8_t resolution, powered;
+			
+			resolution = (scratch_buff.config CONFIG_RES_SHIFT) & 0x03;
+			powered = tempPowerMode(sensor) ? 0x01 : 0;
+			
+			if (sensor.config.resolution != resolution)
+			{
+				sensor.config.resolution = resolution;
+			}
+			else if (sensor.config.powered != powered)
+			{
+				sensor.config.powered = powered;
+			}
+			else if (sensor.config.channel == channel)
+			{
+				return 1;
+			}
+			
+			if (tempSensorStore(num, sensor))
+			{
+				return 2;
+			}
+		}
+		else if (_error == ERROR_NO_DEVICE || _error == ERROR_CRC_MISMATCH)
+		{
+			_error = ERROR_NONE;
+		}
+		
+		if (sensor.config.channel < DS2482_TOTAL_CHANNELS - 1)
+		{
+			sensor.config.channel++;
+		}
+		else
+		{
+			sensor.config.channel = 0;
+		}
+	}
+	while (sensor.config.channel != channel);
+	
+	return 0;
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Find devices not stored in eeprom
+//
+//	Input	&sensor: reference to device data
+//			&scratch: reference to scratchpad
+//
+//	Output	0 fail
+//			1 success
+//
+//-------------------------------------------------------------------------------------------------
+
+uint8_t DS2482::tempSensorFind(Device &sensor, Scratch &scratch)
+{
+	uint8_t channel = 0;
+	
+	searchDone = 1;
+	
+	do
+	{
+		if (searchDone == 1 && !chipChannel(channel))
+		{
+			return 0;
+		}
+		
+		if (tempSearch(sensor, scratch))
+		{
+			uint8_t num, romByte;
+			num = 1;
+			
+			do
+			{
+				Device device;
+				
+				if (num > eepromTotal)
+				{
+					return 1;
+				}
+				
+				romByte = 0;
+				tempSensorLoad(num, device);
+				
+				while (romByte < 8 && sensor.addr[romByte] == device.addr[romByte])
+				{
+					romByte++;
+				}
+				
+				num++;
+			}
+			while (romByte < 8);
+		}
+		else if (_error == ERROR_NO_DEVICE)
+		{
+			_error = ERROR_NONE;
+		}
+		
+		if (searchDone == 1)
+		{
+			channel++;
+		}
+	}
+	while (channel < DS2482_TOTAL_CHANNELS);
+	
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+//-------------------------------------------------------------------------------------------------
+//
+// Rescan and store device address to eeprom
+//
+//	Input	store: whether to store results or compare them
+//			config: if set then write config to sensors
+//
+//	Output	0 fail
+//			1 success
+//
+//-------------------------------------------------------------------------------------------------
+
+uint8_t DS2482::tempSensorRescan(uint8_t store, uint8_t config)
+{
+	uint16_t address;
+	uint8_t devices, i;
+	
+	address = E2END;
+	devices = 0;
+	
+	searchDone = 1;
+	
+	
+	for (i = 0; i < DS2482_TOTAL_CHANNELS; i++)
+	{
+		if (!chipChannel(i))
+		{
+			return 0;
+		}
+		
+		do
+		{
+			Device device_buff;
+			Scratch scratch_buff;
+			
+			if (tempSearch(device_buff, scratch_buff))
+			{
+				devices++;
+				
+				if (store != 0)
+				{
+					address -= sizeof(DEVICE);
+					
+					if (address < E2END - DS2482_EEPROM_MAX_ALLOC)
+					{
+						_error = ERROR_EEPROM_FULL;
+						return 0;
+					}
+					
+					if (config != 0 && scratch_buff.config != config)
+					{
+						scratch_buff.config = config;
+						
+						if (!tempWriteScratchpad(device_buff, scratch_buff) || !tempStoreEE(device_buff))
+						{
+							return 0;
+						}
+						
+						device_buff.config.resolution = (scratch_buff.config DS18B20_CONFIG_RESOLUTION_SHIFT) & 0x03;
+					}
+					
+					eeprom_write_block((const void*)&device_buff, (void*)address, sizeof(DEVICE));
+				}
+			}
+			else if (_error == ERROR_NO_DEVICE)
+			{
+				_error = ERROR_NONE;
+			}
+			else
+			{
+				return 0;
+			}
+		}
+		while (searchDone == 0);
+	}
+	
+	if (store != 0)
+	{
+		eepromTotal = devices;
+		eeprom_write_byte((uint8_t*)E2END, eepromTotal);
+		
+		return 1;
+	}
+	else 
+	{
+		return (eepromTotal == devices) ? 1 : 0;
+	}
+}
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//-------------------------------------------------------------------------------------------------
+//
+// DS2482 initalization
+//
+//	Input	none
+//
+//	Output	0 no change
+//			1 rescan performed
+//
+//-------------------------------------------------------------------------------------------------
+
 void DS2482::init(void)
 {
 	i2c_init();
 	
-	reset();
-	writeConfig(0);
+	_error = ERROR_NONE;
 	
-	eepromLoadCount();
+	chipReset();
+	chipConfigure(0);
 	
-	if (_eeprom > ((E2END - DS2482_EEPROM_ADDRESS) / sizeof(DEVICE)))
+	searchLast = 0;
+	searchDone = 1;
+	
+	eepromTotal = eeprom_read_byte((const uint8_t*)E2END);
+	
+	if (eepromTotal > (DS2482_EEPROM_MAX_ALLOC / sizeof(DEVICE)))
 	{
-		eepromResetCount(1);
+		eepromTotal = 0;
 	}
 }
 
