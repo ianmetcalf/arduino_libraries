@@ -67,7 +67,7 @@ uint8_t DS2482::getError(void)
 
 //*************************************************************************************************
 //
-//										Basic Chip Functions
+//		Basic Chip Functions
 //
 //*************************************************************************************************
 
@@ -283,7 +283,7 @@ uint8_t DS2482::chipChannel(uint8_t channel)
 
 //*************************************************************************************************
 //
-//										Basic OneWire Functions
+//		Basic OneWire Functions
 //
 //*************************************************************************************************
 
@@ -488,7 +488,7 @@ uint8_t DS2482::wireTriplet(uint8_t dir)
 
 //*************************************************************************************************
 //
-//										Basic Device ROM Functions
+//		Basic Device ROM Functions
 //
 //*************************************************************************************************
 
@@ -710,7 +710,7 @@ uint8_t DS2482::romSearch(uint8_t *address)
 
 //*************************************************************************************************
 //
-//										Temperature Sensor Functions
+//		Temperature Sensor Functions
 //
 //*************************************************************************************************
 
@@ -1041,13 +1041,13 @@ uint8_t DS2482::tempSearch(Device &sensor, Scratch &scratch)
 
 //*************************************************************************************************
 //
-//								Temperature Sensor Management Functions
+//		Temperature Sensor Management Functions
 //
 //*************************************************************************************************
 
 //-------------------------------------------------------------------------------------------------
 //
-// Reset the number of sensors to zero
+// Reset the number of sensors to zero (saves total to eeprom)
 //
 //	Input	none
 //
@@ -1163,7 +1163,7 @@ uint8_t DS2482::tempSensorStore(uint8_t num, DEVICE &sensor)
 
 //-------------------------------------------------------------------------------------------------
 //
-// Verify sensor exists
+// Verify sensor exists (writes to eeprom if config info has changed)
 //
 //	Input	num: device number
 //			&sensor: reference to device data

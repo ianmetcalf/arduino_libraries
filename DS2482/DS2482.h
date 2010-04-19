@@ -103,14 +103,12 @@ class DS2482
 		uint8_t tempSearch(Device&, Scratch&);
 		
 		void tempSensorReset(void);
-		
 		uint8_t tempSensorTotal(void);
 		
 		uint8_t tempSensorLoad(uint8_t, Device&);
 		uint8_t tempSensorStore(uint8_t, Device&);
 		
 		uint8_t tempSensorVarify(uint8_t, Device&);
-		
 		uint8_t tempSensorFind(Device&, Scratch&);
 		
 		
