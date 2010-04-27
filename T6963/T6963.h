@@ -18,73 +18,113 @@ r6 - Checked in with SVN
 r7 - Checked in with cursor controls added
 r8 - Got 6bit font width (s/b any fonth width) working.  
 -----------------------------------------------------------------------------------------------*/
-#ifndef T6963_h
-#define T6963_h
+#ifndef T6963_H
+#define T6963_H
 
-#include "WProgram.h"
-#include "inttypes.h"
-#include "avr/io.h"
-#include "avr/pgmspace.h"
-#include "util/delay.h"
-#include "T6963_Commands.h"
+extern "C"{
+	#include <inttypes.h>
+	#include <avr/pgmspace.h>
+}
+
+#define SCREEN_WIDTH	240
+#define SCREEN_HEIGHT	128
+
+#define FONT_WIDTH	6
+#define FONT_HEIGHT	8
+
+#define MEM_SIZE	8
+
+#define MEM_TEXT_START		0
+#define MEM_TEXT_WIDTH		(SCREEN_WIDTH/FONT_WIDTH)
+#define MEM_TEXT_HEIGHT		(SCREEN_HEIGHT/FONT_HEIGHT)
+#define MEM_TEXT_AREA		(MEM_TEXT_WIDTH*MEM_TEXT_HEIGHT)
+#define MEM_TEXT_END		(MEM_TEXT_START+MEM_TEXT_AREA)
+
+#define MEM_GRAPH_START		MEM_TEXT_END
+#define MEM_GRAPH_WIDTH		(SCREEN_WIDTH/FONT_WIDTH)
+#define MEM_GRAPH_HEIGHT	SCREEN_HEIGHT
+#define MEM_GRAPH_AREA		(MEM_GRAPH_WIDTH*SCREEN_HEIGHT)
+#define MEM_GRAPH_END		(MEM_GRAPH_START+MEM_GRAPH_AREA)
+
+#define MEM_CG_OFFSET		((MEM_SIZE/2)-1)
+#define MEM_CG_START		(MEM_CG_OFFSET*0x800)
+#define MEM_CG_SIZE			(256*8)
+
+
+
+
+
 
 class T6963
 {
 	public:
-		uint8_t _FW;
-		uint8_t _FH;
-		
 		T6963();
 		
-		uint8_t readStatus(void);
-		uint8_t readData(void);
-		void writeCommand(uint8_t);
-		void writeData(uint8_t);
+		void setMode(uint8_t, uint8_t);
+		void setDisplay(uint8_t);
 		
-		void setMemMode(uint8_t, uint8_t);
-		void setDispMode(uint8_t);
-		void setAddressPointer(uint16_t);
+		void setAddress(void);
+		void setText(void);
 		void setCursorPointer(uint8_t, uint8_t);
 		void setCursorPattern(uint8_t);
 		
-		void gotoText(uint8_t, uint8_t);
-		void gotoGraphic(uint8_t, uint8_t);
+		uint8_t readByte(void);
+		uint8_t readByteInc(void);
+		uint8_t readByteDec(void);
 		
-		void writeDisplay(uint8_t);
-		void writeDispInc(uint8_t);
-		void writeDispDec(uint8_t);
+		void writeByte(uint8_t);
+		void writeByteInc(uint8_t);
+		void writeByteDec(uint8_t);
 		
-		uint8_t readDisplay(void);
-		uint8_t readDispInc(void);
-		uint8_t readDispDec(void);
+		void writeBit(uint8_t);
+		void writeBlock(uint8_t, uint16_t);
+		//void writeBlock(uint8_t, uint8_t, uint8_t);
 		
-		void writeChar(char);
-		void writeString(char *);
-		void writeString(char *, uint8_t);
-		void writeStringPgm(prog_char *);
+		void horizLine(int16_t);
+		void vertLine(int16_t);
+		void diagLine(int16_t, uint8_t);
+		void bresenLine(int16_t, int16_t);
 		
-		void writePixel(uint8_t);
-		void setPixel(uint8_t, uint8_t);
-		void clearPixel(uint8_t, uint8_t);
+		void clear(void);
+		void setColor(uint8_t);
+		void move(int16_t, int16_t);
+		void moveTo(uint8_t, uint8_t);
+		void line(int16_t, int16_t);
+		void lineTo(uint8_t, uint8_t);
+		void rect(int16_t, int16_t);
+		void rectTo(uint8_t, uint8_t);
 		
 		void clearText(void);
-		void clearGraphic(void);
+		void clearText(int16_t);
+		
+		void text(int16_t, int16_t);
+		void textTo(uint8_t, uint8_t);
+		
+		void text(char*);
+		void text(char*, int16_t);
+		
+		void textPgm(prog_char*);
+		void textPgm(prog_char*, int16_t);
+		
 		void clearCG(void);
 		
-		void init(uint8_t, uint8_t, uint8_t, uint8_t);
+		void init(void);
 		
 	private:
-		uint8_t horizPix;
-		uint8_t vertPix;
-		uint8_t memSize;
+		uint16_t _address;
+		uint16_t _text;
 		
-		uint16_t _TH;
-		uint16_t _GH;
-		uint16_t _TA;
-		uint16_t _GA;
+		uint8_t _bit;
+		uint8_t _color;
 		
-		uint16_t sizeTA;
-		uint16_t sizeGA;
+		uint8_t _lastX;
+		uint8_t _lastY;
+		
+		uint8_t readStatus(void);
+		uint8_t readData(void);
+		
+		void writeCommand(uint8_t);
+		void writeData(uint8_t);
 };
 
 extern T6963 LCD;
