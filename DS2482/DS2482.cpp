@@ -1,22 +1,53 @@
 /*
-  DS2482 library for Arduino
-  Copyright (C) 2009 Paeae Technologies
-
-  This program is free software: you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-	crc code is from OneWire library
+	Library for the DS2484 OneWire controller by Ian T Metcalf
+		tested with the Arduino IDE v18 on a Duemilanova 328
+	
+	Configured for the DS2482-800 onewire bridge w/ 8 channels
+		http://www.maxim-ic.com/quick_view2.cfm/qv_pk/4338
+	
+	Based on the library written by Paeae Technologies
+		http://github.com/paeaetech/paeae
+	
+	Original description by Paeae Technologies:
+		DS2482 library for Arduino
+		Copyright (C) 2009 Paeae Technologies
+		
+		This program is free software: you can redistribute it and/or modify
+		it under the terms of the GNU General Public License as published by
+		the Free Software Foundation, either version 3 of the License, or
+		(at your option) any later version.
+		
+		This program is distributed in the hope that it will be useful,
+		but WITHOUT ANY WARRANTY; without even the implied warranty of
+		MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+		GNU General Public License for more details.
+		
+		You should have received a copy of the GNU General Public License
+		along with this program.  If not, see <http://www.gnu.org/licenses/>.
+	
+	Also to give credit to the original OneWire library written by Jim Studt
+		based on work by Derek Yerger and updated by Robin James and Paul Stoffregen
+		http://www.pjrc.com/teensy/td_libs_OneWire.html
+	
+	And the temperature sensor library written by Miles Burton
+		http://milesburton.com/index.php?title=Dallas_Temperature_Control_Library
+	
+	Changes by ITM:
+		2010/04/30	restructured code to ease understanding for myself
+		2010/04/30	moved ds2482 commands to a separate header file
+		2010/04/30	used Peter Fleury's i2c master library instead of the one in Wire 
+						to greatly simplify the communication to the device (no ISR)
+		2010/04/30	wrote clean simple onewire search function
+		2010/04/30	used crc routine in avr-libc to verify search and sensor scratchpad
+		2010/04/30	wrote functions for the DS18B20 temperature sensor
+		2010/04/30	wrote sensor management functions to find and store temp sensors in eeprom
+	
+	All works by ITM are released under the creative commons attribution share alike license
+		http://creativecommons.org/licenses/by-sa/3.0/
+	
+	I can be contacted at metcalfbuilt@gmail.com
 */
+
 
 #include <WProgram.h>
 
@@ -1416,8 +1447,7 @@ uint8_t DS2482::tempSensorRescan(uint8_t store, uint8_t config)
 //
 //	Input	none
 //
-//	Output	0 no change
-//			1 rescan performed
+//	Output	none
 //
 //-------------------------------------------------------------------------------------------------
 

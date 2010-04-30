@@ -12,35 +12,44 @@ T6963	KEYWORD1
 # Methods and Functions (KEYWORD2)
 #######################################
 
-_FW	KEYWORD2
-_FH	KEYWORD2
+setMode	KEYWORD2
+setDisplay	KEYWORD2
 
-readStatus	KEYWORD2
-readData	KEYWORD2
-writeCommand	KEYWORD2
-writeData	KEYWORD2
-
-setMemMode	KEYWORD2
-setDispMode	KEYWORD2
-setAddressPointer	KEYWORD2
+setAddress	KEYWORD2
+setText	KEYWORD2
 setCursorPointer	KEYWORD2
 setCursorPattern	KEYWORD2
 
-gotoText	KEYWORD2
-gotoGraphic	KEYWORD2
+readByte	KEYWORD2
+readByteInc	KEYWORD2
+readByteDec	KEYWORD2
 
-writeDisplay	KEYWORD2
-readDisplay	KEYWORD2
+writeByte	KEYWORD2
+writeByteInc	KEYWORD2
+writeByteDec	KEYWORD2
 
-writeChar	KEYWORD2
-writeString	KEYWORD2
-writeStringPgm	KEYWORD2
+writeBit	KEYWORD2
+writeBlock	KEYWORD2
 
-setPixel	KEYWORD2
-clearPixel	KEYWORD2
+horizLine	KEYWORD2
+vertLine	KEYWORD2
+diagLine	KEYWORD2
+bresenLine	KEYWORD2
+
+clear	KEYWORD2
+setColor	KEYWORD2
+move	KEYWORD2
+moveTo	KEYWORD2
+line	KEYWORD2
+lineTo	KEYWORD2
+rect	KEYWORD2
+rectTo	KEYWORD2
 
 clearText	KEYWORD2
-clearGraphic	KEYWORD2
+text	KEYWORD2
+textTo	KEYWORD2
+textPgm	KEYWORD2
+
 clearCG	KEYWORD2
 
 init	KEYWORD2

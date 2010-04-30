@@ -1,23 +1,60 @@
-/*-------------------------------------------------------------------------------------------------
-0.0- What these 2 guys built that I worked from
-      Graphic LCD with Toshiba T6963 controller
-      Copyright (c) Rados³aw Kwiecieñ, 2007r
-      http://en.radzio.dxp.pl/t6963/
-      Compiler : avr-gcc
-      Modified By -Gil- to work on Arduino easily : http://domoduino.tumblr.com/
-0.1- Invocable class T6963
-      Commands moved to T6963_commands.h
-      For some reason I don't have reset hooked up and all is working fine.
-0.2- rbrsidedn
-      renamed SetPixel(byte,byte,byte) -> writePixel(x,y,color)
-      added setPixel(x,y)
-      added clearPixel(x,y)
-      added createline(x1,y1,x2,y2)
-      added createCircle(x,y,radius)       
-r6 - Checked in with SVN
-r7 - Checked in with cursor controls added
-r8 - Got 6bit font width (s/b any fonth width) working.  
------------------------------------------------------------------------------------------------*/
+/*
+	Library for the T6963 LCD controller by Ian T Metcalf
+		tested with the Arduino IDE v18 on a Duemilanova 328
+	
+	Configured for 240x128 lcd with 8k of memory
+		http://www.crystalfontz.com/products/240128l/datasheets/2104/CFAG240128LYYHTZ_vPreliminary_3.0.pdf
+	
+	Based on the library written by rbrsidedn1
+		http://code.google.com/p/rbrsidedn1
+	
+	Original description by rbrsidedn1:
+		0.0- What these 2 guys built that I worked from
+			Graphic LCD with Toshiba T6963 controller
+			Copyright (c) Rados?aw Kwiecie?, 2007r
+			http://en.radzio.dxp.pl/t6963/
+			Compiler : avr-gcc
+			Modified By -Gil- to work on Arduino easily : http://domoduino.tumblr.com/
+		0.1- Invocable class T6963
+			Commands moved to T6963_commands.h
+			For some reason I don't have reset hooked up and all is working fine.
+		0.2- rbrsidedn
+			renamed SetPixel(byte,byte,byte) -> writePixel(x,y,color)
+			added setPixel(x,y)
+			added clearPixel(x,y)
+			added createline(x1,y1,x2,y2)
+			added createCircle(x,y,radius)       
+		r6 - Checked in with SVN
+		r7 - Checked in with cursor controls added
+		r8 - Got 6bit font width (s/b any font width) working.
+	
+	Changes by ITM:
+		2010/04/30	restructured code to ease understanding for myself
+		2010/04/30	hard coded display properties, condensed init()
+		2010/04/30	added primitive drawing functions for line drawing
+						horizLine
+						vertLine
+						diagLine
+						bresenLine
+		2010/04/30	added macdraw like functions:
+						move(dx, dy)
+						moveTo(x, y)
+						line(dx, dy)
+						lineTo(x, y)
+						rect(dx, dy)
+						rectTo(x, y)
+		2010/04/30	expanded text functions
+						partial clear written forward or backward
+						partial string written forward or backward
+						similar text(x, y) textTo(dx, dy) to functions above
+	
+	All works by ITM are released under the creative commons attribution share alike license
+		http://creativecommons.org/licenses/by-sa/3.0/
+	
+	I can be contacted at metcalfbuilt@gmail.com
+*/
+
+
 #ifndef T6963_H
 #define T6963_H
 
@@ -47,7 +84,7 @@ extern "C"{
 #define MEM_GRAPH_END		(MEM_GRAPH_START+MEM_GRAPH_AREA)
 
 #define MEM_CG_OFFSET		((MEM_SIZE/2)-1)
-#define MEM_CG_START		(MEM_CG_OFFSET*0x800)
+#define MEM_CG_START		(MEM_CG_OFFSET*256*8)
 #define MEM_CG_SIZE			(256*8)
 
 
@@ -96,13 +133,10 @@ class T6963
 		
 		void clearText(void);
 		void clearText(int16_t);
-		
 		void text(int16_t, int16_t);
 		void textTo(uint8_t, uint8_t);
-		
 		void text(char*);
 		void text(char*, int16_t);
-		
 		void textPgm(prog_char*);
 		void textPgm(prog_char*, int16_t);
 		

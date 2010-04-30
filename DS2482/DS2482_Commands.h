@@ -1,5 +1,3 @@
-#include "WProgram.h"
-
 #define DS2482_DEVICE_RESET		0xF0
 
  #define DS2482_STATUS_BUSY	(1<<0)
@@ -18,6 +16,7 @@
  #define DS2482_CONFIG_REG		0xC3
 
 #define DS2482_WRITE_CONFIG		0xD2
+
  #define DS2482_CONFIG_APU	(1<<0)
  #define DS2482_CONFIG_SPU	(1<<2)
  #define DS2482_CONFIG_WS	(1<<3)
