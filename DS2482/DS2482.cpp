@@ -48,18 +48,8 @@
 	I can be contacted at metcalfbuilt@gmail.com
 */
 
-
-#include <WProgram.h>
-
-extern "C"{
-	#include <inttypes.h>
-	#include <i2cmaster.h>
-	#include <util/crc16.h>
-	#include <avr/eeprom.h>
-}
-
 #include "DS2482.h"
-#include "DS2482_Commands.h"
+
 
 #define DS2482_I2C_ADDRESS 		0x18
 #define DS2482_I2C_ADDRESS_MASK	0x03
@@ -1219,18 +1209,13 @@ uint8_t DS2482::tempSensorVarify(uint8_t num, Device &sensor)
 			resolution = (scratch_buff.config CONFIG_RES_SHIFT) & 0x03;
 			powered = tempPowerMode(sensor) ? 0x01 : 0;
 			
-			if (sensor.config.resolution != resolution)
-			{
-				sensor.config.resolution = resolution;
-			}
-			else if (sensor.config.powered != powered)
-			{
-				sensor.config.powered = powered;
-			}
-			else if (sensor.config.channel == channel)
+			if (sensor.config.resolution == resolution && sensor.config.powered == powered && sensor.config.channel == channel)
 			{
 				return 1;
 			}
+			
+			sensor.config.resolution = resolution;
+			sensor.config.powered = powered;
 			
 			if (tempSensorStore(num, sensor))
 			{

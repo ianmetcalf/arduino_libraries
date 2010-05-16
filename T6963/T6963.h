@@ -69,11 +69,14 @@ extern "C"{
 #define FONT_WIDTH	6
 #define FONT_HEIGHT	8
 
+#define SCREEN_COLS			(SCREEN_WIDTH/FONT_WIDTH)
+#define SCREEN_ROWS			(SCREEN_HEIGHT/FONT_HEIGHT)
+
 #define MEM_SIZE	8
 
 #define MEM_TEXT_START		0
-#define MEM_TEXT_WIDTH		(SCREEN_WIDTH/FONT_WIDTH)
-#define MEM_TEXT_HEIGHT		(SCREEN_HEIGHT/FONT_HEIGHT)
+#define MEM_TEXT_WIDTH		SCREEN_COLS
+#define MEM_TEXT_HEIGHT		SCREEN_ROWS
 #define MEM_TEXT_AREA		(MEM_TEXT_WIDTH*MEM_TEXT_HEIGHT)
 #define MEM_TEXT_END		(MEM_TEXT_START+MEM_TEXT_AREA)
 
@@ -129,6 +132,7 @@ class T6963
 		void line(int16_t, int16_t);
 		void lineTo(uint8_t, uint8_t);
 		void rect(int16_t, int16_t);
+		void rect(int16_t, int16_t, uint8_t);
 		void rectTo(uint8_t, uint8_t);
 		
 		void clearText(void);

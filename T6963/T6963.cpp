@@ -67,6 +67,29 @@ extern "C"{
 #include "T6963.h"
 #include "T6963_Commands.h"
 
+
+#if defined(__AVR_ATmega644P__)
+
+// data port
+#define GLCD_DATA_PORT		PORTB
+#define GLCD_DATA_PIN		PINB
+#define GLCD_DATA_DDR		DDRB
+
+// control port
+#define GLCD_CTRL_PORT		PORTD
+#define GLCD_CTRL_PIN		PIND
+#define GLCD_CTRL_DDR		DDRD
+
+// control signals
+#define GLCD_WR			2
+#define GLCD_RD			3
+#define GLCD_CE			4
+#define GLCD_CD			5
+
+#else
+
+#define GLCD_DATA_SPLIT		1
+
 // data port
 #define GLCD_DATA_PORT1 	PORTC
 #define GLCD_DATA_PIN1		PINC
@@ -88,10 +111,12 @@ extern "C"{
 #define GLCD_CTRL_DDR		DDRB
 
 // control signals
-//#define GLCD_WR				0
+//#define GLCD_WR				0	// Inverted with RD pin
 #define GLCD_RD				0
-#define GLCD_CE				1  //Should be able to XNOR this with WR and RD
+#define GLCD_CE				1
 #define GLCD_CD				2
+
+#endif
 
 //-------------------------------------------------------------------------------------------------
 //
@@ -154,16 +179,32 @@ uint8_t T6963::readStatus(void)
 {
 	uint8_t tmp;
 	
+	#if defined(GLCD_DATA_SPLIT)
 	GLCD_DATA_DDR1 &= ~GLCD_DATA_MASK1;
 	GLCD_DATA_DDR2 &= ~GLCD_DATA_MASK2;
+	#else
+	GLCD_DATA_DDR = 0x00;
+	#endif
 	
 	GLCD_CTRL_PORT &= ~((1 << GLCD_RD) | (1 << GLCD_CE));
 	n_delay();
-	tmp = (GLCD_DATA_PIN1 GLCD_DATA_RSHIFT1) | (GLCD_DATA_PIN2 GLCD_DATA_RSHIFT2);
 	
+	#if defined(GLCD_DATA_SPLIT)
+	tmp = ((GLCD_DATA_PIN1 & GLCD_DATA_MASK1) GLCD_DATA_RSHIFT1);
+	tmp |= ((GLCD_DATA_PIN2 & GLCD_DATA_MASK2) GLCD_DATA_RSHIFT2);
+	#else
+	tmp = GLCD_DATA_PIN;
+	#endif
+	
+	GLCD_CTRL_PORT |= (1 << GLCD_RD) | (1 << GLCD_CE);
+	
+	#if defined(GLCD_DATA_SPLIT)
 	GLCD_DATA_DDR1 |= GLCD_DATA_MASK1;
 	GLCD_DATA_DDR2 |= GLCD_DATA_MASK2;
-	GLCD_CTRL_PORT |= ((1 << GLCD_RD) | (1 << GLCD_CE));
+	#else
+	GLCD_DATA_DDR = 0xFF;
+	#endif
+	
 	return tmp;
 }
 
@@ -183,17 +224,32 @@ uint8_t T6963::readData(void)
 	
 	while(!(readStatus() & 0x03));
 	
+	#if defined(GLCD_DATA_SPLIT)
 	GLCD_DATA_DDR1 &= ~GLCD_DATA_MASK1;
 	GLCD_DATA_DDR2 &= ~GLCD_DATA_MASK2;
+	#else
+	GLCD_DATA_DDR = 0x00;
+	#endif
 	
 	GLCD_CTRL_PORT &= ~((1 << GLCD_RD) | (1 << GLCD_CE) | (1 << GLCD_CD));
 	n_delay();
+	
+	#if defined(GLCD_DATA_SPLIT)
 	tmp = ((GLCD_DATA_PIN1 & GLCD_DATA_MASK1) GLCD_DATA_RSHIFT1);
 	tmp |= ((GLCD_DATA_PIN2 & GLCD_DATA_MASK2) GLCD_DATA_RSHIFT2);
+	#else
+	tmp = GLCD_DATA_PIN;
+	#endif
 	
-	GLCD_CTRL_PORT |= ((1 << GLCD_RD) | (1 << GLCD_CE) | (1 << GLCD_CD));
+	GLCD_CTRL_PORT |= (1 << GLCD_RD) | (1 << GLCD_CE) | (1 << GLCD_CD);
+	
+	#if defined(GLCD_DATA_SPLIT)
 	GLCD_DATA_DDR1 |= GLCD_DATA_MASK1;
 	GLCD_DATA_DDR2 |= GLCD_DATA_MASK2;
+	#else
+	GLCD_DATA_DDR = 0xFF;
+	#endif
+	
 	return tmp;
 }
 
@@ -211,14 +267,18 @@ void T6963::writeCommand(uint8_t command)
 {
 	while(!(readStatus() & 0x03));
 	
+	#if defined(GLCD_DATA_SPLIT)
 	GLCD_DATA_PORT1 &= ~GLCD_DATA_MASK1;
 	GLCD_DATA_PORT1 |= (command GLCD_DATA_SHIFT1);
 	GLCD_DATA_PORT2 &= ~GLCD_DATA_MASK2;
 	GLCD_DATA_PORT2 |= (command GLCD_DATA_SHIFT2);
+	#else
+	GLCD_DATA_PORT = command;
+	#endif
 	
-	GLCD_CTRL_PORT &= ~(1 << GLCD_CE);
+	GLCD_CTRL_PORT &= ~((1 << GLCD_WR) | (1 << GLCD_CE));
 	n_delay();
-	GLCD_CTRL_PORT |= (1 << GLCD_CE);
+	GLCD_CTRL_PORT |= (1 << GLCD_WR) | (1 << GLCD_CE);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -235,14 +295,18 @@ void T6963::writeData(uint8_t data)
 {
 	while(!(readStatus() & 0x03));
 	
+	#if defined(GLCD_DATA_SPLIT)
 	GLCD_DATA_PORT1 &= ~GLCD_DATA_MASK1;
 	GLCD_DATA_PORT1 |= (data GLCD_DATA_SHIFT1);
 	GLCD_DATA_PORT2 &= ~GLCD_DATA_MASK2;
 	GLCD_DATA_PORT2 |= (data GLCD_DATA_SHIFT2);
+	#else
+	GLCD_DATA_PORT = data;
+	#endif
 	
-	GLCD_CTRL_PORT &= ~((1 << GLCD_CE) | (1 << GLCD_CD));
+	GLCD_CTRL_PORT &= ~((1 << GLCD_WR) | (1 << GLCD_CE) | (1 << GLCD_CD));
 	n_delay();
-	GLCD_CTRL_PORT |= ((1 << GLCD_CE) | (1 << GLCD_CD));
+	GLCD_CTRL_PORT |= (1 << GLCD_WR) | (1 << GLCD_CE) | (1 << GLCD_CD);
 }
 
 
@@ -594,6 +658,59 @@ void T6963::horizLine(int16_t length)
 	
 	cmd = T6963_SET_PIXEL | _color;
 	
+	if (length > 0)
+	{
+		if (_bit - length < 0)
+		{
+			_bit++;
+			length -= _bit;
+			
+			while (_bit > 0)
+			{
+				_bit--;
+				writeCommand(cmd | _bit);
+				
+			}
+			
+			_bit = FONT_WIDTH - 1;
+			_address++;
+			setAddress();
+			
+			if (length >= FONT_WIDTH)
+			{
+				uint8_t col, data;
+				
+				col = length / FONT_WIDTH;
+				_address += col;
+				length -= col * FONT_WIDTH;
+				
+				data = _color ? 0xFF : 0;
+				
+				while (col > 0)
+				{
+					writeData(data);
+					writeCommand(T6963_DATA_WRITE_AND_INCREMENT);
+					col--;
+				}
+				
+				if (length == 0)
+				{
+					return;
+				}
+			}
+		}
+		
+		bit = _bit - length;
+		
+		while (_bit > bit)
+		{
+			writeCommand(cmd | _bit);
+			_bit--;
+		}
+		
+		return;
+	}
+	
 	if (length < 0)
 	{
 		length = -length;
@@ -646,56 +763,6 @@ void T6963::horizLine(int16_t length)
 			_bit++;
 		}
 	}
-	else
-	{
-		if (_bit - length < 0)
-		{
-			_bit++;
-			length -= _bit;
-			
-			while (_bit > 0)
-			{
-				_bit--;
-				writeCommand(cmd | _bit);
-				
-			}
-			
-			_bit = FONT_WIDTH - 1;
-			_address++;
-			setAddress();
-			
-			if (length > FONT_WIDTH)
-			{
-				uint8_t col, data;
-				
-				col = length / FONT_WIDTH;
-				_address += col;
-				length -= col * FONT_WIDTH;
-				
-				data = _color ? 0xFF : 0;
-				
-				while (col > 0)
-				{
-					writeData(data);
-					writeCommand(T6963_DATA_WRITE_AND_INCREMENT);
-					col--;
-				}
-				
-				if (length == 0)
-				{
-					return;
-				}
-			}
-		}
-		
-		bit = _bit - length;
-		
-		while (_bit > bit)
-		{
-			writeCommand(cmd | _bit);
-			_bit--;
-		}
-	}
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -714,24 +781,34 @@ void T6963::vertLine(int16_t length)
 	
 	cmd = T6963_SET_PIXEL | _color | _bit;
 	
-	while (length > 0)
+	if (length > 0)
 	{
-		writeCommand(cmd);
+		do
+		{
+			writeCommand(cmd);
+			
+			_address += MEM_GRAPH_WIDTH;
+			setAddress();
+			
+			length--;
+		}
+		while (length > 0);
 		
-		_address += MEM_GRAPH_WIDTH;
-		setAddress();
-		
-		length--;
+		return;
 	}
 	
-	while (length < 0)
+	if (length < 0)
 	{
-		writeCommand(cmd);
-		
-		_address -= MEM_GRAPH_WIDTH;
-		setAddress();
-		
-		length++;
+		do
+		{
+			writeCommand(cmd);
+			
+			_address -= MEM_GRAPH_WIDTH;
+			setAddress();
+			
+			length++;
+		}
+		while (length < 0);
 	}
 }
 
@@ -759,44 +836,54 @@ void T6963::diagLine(int16_t dx, uint8_t yIsNeg)
 		dy = -dy;
 	}
 	
-	while (dx > 0)
+	if (dx > 0)
 	{
-		writeCommand(cmd | _bit);
-		
-		if (_bit > 0)
+		do
 		{
-			_bit--;
+			writeCommand(cmd | _bit);
+			
+			if (_bit > 0)
+			{
+				_bit--;
+			}
+			else
+			{
+				_bit = FONT_WIDTH - 1;
+				_address++;
+			}
+			
+			_address += dy;
+			setAddress();
+			
+			dx--;
 		}
-		else
-		{
-			_bit = FONT_WIDTH - 1;
-			_address++;
-		}
+		while (dx > 0);
 		
-		_address += dy;
-		setAddress();
-		
-		dx--;
+		return;
 	}
 	
-	while (dx < 0)
+	if (dx < 0)
 	{
-		writeCommand(cmd | _bit);
-		
-		if (_bit < FONT_WIDTH - 1)
+		do
 		{
-			_bit++;
+			writeCommand(cmd | _bit);
+			
+			if (_bit < FONT_WIDTH - 1)
+			{
+				_bit++;
+			}
+			else
+			{
+				_bit = 0;
+				_address--;
+			}
+			
+			_address += dy;
+			setAddress();
+			
+			dx++;
 		}
-		else
-		{
-			_bit = 0;
-			_address--;
-		}
-		
-		_address += dy;
-		setAddress();
-		
-		dx++;
+		while (dx < 0);
 	}
 }
 
@@ -1194,6 +1281,43 @@ void T6963::rect(int16_t dx, int16_t dy)
 
 //-------------------------------------------------------------------------------------------------
 //
+// Draw a rectangle relative to a point in graphic memory with diagonal corners
+//
+//	Input	dx: width
+//			dy: height
+//			diag: diagonal corner size
+//
+//	Output	none
+//
+//-------------------------------------------------------------------------------------------------
+
+void T6963::rect(int16_t dx, int16_t dy, uint8_t diag)
+{
+	if (dx < (SCREEN_WIDTH - _lastX) && dx >= (0 - _lastX) && dy < (SCREEN_HEIGHT - _lastY) && dy >= (0 - _lastY))
+	{
+		if (dx >= diag * 2 && dy >= diag * 2)
+		{
+			move(diag + 1, 0);
+			
+			horizLine(dx - diag * 2);
+			diagLine(diag, 0);
+			
+			vertLine(dy - diag * 2);
+			diagLine(-diag, 0);
+			
+			horizLine(diag * 2 - dx);
+			diagLine(-diag, 1);
+			
+			vertLine(diag * 2 - dy);
+			diagLine(diag, 1);
+			
+			move(-diag, 0);
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+//
 // Draw a rectangle to a point in graphic memory
 //
 //	Input	x: new x
@@ -1423,7 +1547,7 @@ void T6963::textPgm(prog_char *string)
 	
 	setText();
 	
-	while (_text < MEM_TEXT_END && charCode = pgm_read_byte(string))
+	while (_text < MEM_TEXT_END && (charCode = pgm_read_byte(string)))
 	{
 		writeData(charCode - 32);
 		writeCommand(T6963_DATA_WRITE_AND_INCREMENT);
@@ -1544,17 +1668,25 @@ void T6963::clearCG(void)
 
 //-------------------------------------------------------------------------------------------------
 //
-// Display initalization
+// T6963 initalization
+//
+//	Input	none
+//
+//	Output	none
 //
 //-------------------------------------------------------------------------------------------------
 
 void T6963::init(void)
 {
+	#if defined(GLCD_DATA_SPLIT)
 	GLCD_DATA_DDR1 |= GLCD_DATA_MASK1;
 	GLCD_DATA_DDR2 |= GLCD_DATA_MASK2;
+	#else
+	GLCD_DATA_DDR = 0xFF;
+	#endif
 	
-	GLCD_CTRL_DDR |= ((1 << GLCD_RD) | (1 << GLCD_CE) | (1 << GLCD_CD));
-	GLCD_CTRL_PORT |= ((1 << GLCD_RD) | (1 << GLCD_CE) | (1 << GLCD_CD));
+	GLCD_CTRL_DDR |= (1 << GLCD_WR) | (1 << GLCD_RD) | (1 << GLCD_CE) | (1 << GLCD_CD);
+	GLCD_CTRL_PORT |= (1 << GLCD_WR) | (1 << GLCD_RD) | (1 << GLCD_CE) | (1 << GLCD_CD);
 	
 	//Set text area home address
 	writeData(MEM_TEXT_START & 0xFF);

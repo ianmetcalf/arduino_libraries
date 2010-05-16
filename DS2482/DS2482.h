@@ -68,7 +68,16 @@
 #ifndef DS2482_h
 #define DS2482_h
 
+#include "DS2482_Commands.h"
+#include <WProgram.h>
+
 #include <inttypes.h>
+#include <util/crc16.h>
+#include <avr/eeprom.h>
+
+extern "C"{
+	#include "utility/i2cmaster.h"
+}
 
 #define DS2482_TOTAL_CHANNELS 8
 
