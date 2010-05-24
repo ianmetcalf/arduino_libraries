@@ -47,6 +47,9 @@
 						partial clear written forward or backward
 						partial string written forward or backward
 						similar text(x, y) textTo(dx, dy) to functions above
+		2010/05/22	modified clear functions
+					changed delay function to one that does not use timers
+					added macros for writing to controller chip
 	
 	All works by ITM are released under the creative commons attribution share alike license
 		http://creativecommons.org/licenses/by-sa/3.0/
@@ -58,10 +61,23 @@
 #ifndef T6963_H
 #define T6963_H
 
+//*************************************************************************************************
+//	Libraries
+//*************************************************************************************************
+
 extern "C"{
 	#include <inttypes.h>
+	#include <avr/io.h>
 	#include <avr/pgmspace.h>
+	#include <util/delay.h>
 }
+
+#include "T6963_Commands.h"
+
+
+//*************************************************************************************************
+//	Global Definitions
+//*************************************************************************************************
 
 #define SCREEN_WIDTH	240
 #define SCREEN_HEIGHT	128
@@ -92,8 +108,9 @@ extern "C"{
 
 
 
-
-
+//*************************************************************************************************
+//	Class Definition
+//*************************************************************************************************
 
 class T6963
 {
@@ -125,7 +142,7 @@ class T6963
 		void diagLine(int16_t, uint8_t);
 		void bresenLine(int16_t, int16_t);
 		
-		void clear(void);
+		void clearGraph(void);
 		void setColor(uint8_t);
 		void move(int16_t, int16_t);
 		void moveTo(uint8_t, uint8_t);

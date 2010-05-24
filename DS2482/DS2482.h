@@ -41,6 +41,7 @@
 		2010/04/30	used crc routine in avr-libc to verify search and sensor scratchpad
 		2010/04/30	wrote functions for the DS18B20 temperature sensor
 		2010/04/30	wrote sensor management functions to find and store temp sensors in eeprom
+		2010/05/24	rewrote error handleing, use flags instead of return values
 	
 	All works by ITM are released under the creative commons attribution share alike license
 		http://creativecommons.org/licenses/by-sa/3.0/
@@ -49,55 +50,76 @@
 */
 
 
-//******************************************************************************
-//
-// IMPORTANT:
-//
-//	You must have the avr-gcc library i2cmaster by Peter Fleury to compile code:
-//		http://homepage.hispeed.ch/peterfleury/avr-software.html
-//		or http://jump.to/fleury and follow the link for AVR Software
-//	
-//	I copied i2cmaster.h and twimaster.c to the arduino core directory:
-//		arduino-0018\hardware\arduino\cores\arduino\
-//	
-//	That seemed to work for me, but if there is a better way let me know
-//
-//******************************************************************************
-
-
 #ifndef DS2482_h
 #define DS2482_h
 
-#include "DS2482_Commands.h"
-#include <WProgram.h>
 
-#include <inttypes.h>
-#include <util/crc16.h>
-#include <avr/eeprom.h>
+//*************************************************************************************************
+//	Libraries
+//*************************************************************************************************
 
-extern "C"{
+extern "C"
+{
+	#include <inttypes.h>
+	#include <avr/eeprom.h>
+	#include <util/delay.h>
+	#include <util/crc16.h>
 	#include "utility/i2cmaster.h"
 }
 
-#define DS2482_TOTAL_CHANNELS 8
+#include "DS2482_Commands.h"
+
+
+//*************************************************************************************************
+//	Global Definitions
+//*************************************************************************************************
+
+#define DS2482_800
+
+
+
+
 
 #define DS2482_EEPROM_MAX_ALLOC	(E2END >> 1)
 
-#define CONFIG_RES_SHIFT	>>5
-#define CONFIG_RES_9_BIT	0x1F
-#define CONFIG_RES_10_BIT	0x3F
-#define CONFIG_RES_11_BIT	0x5F
-#define CONFIG_RES_12_BIT	0x7F
+#define DS2482_I2C_ADDRESS 		0x18
+#define DS2482_I2C_ADDRESS_MASK	0x03
 
-#define ERROR_NONE			0
-#define ERROR_TIMEOUT		1
-#define ERROR_NO_DEVICE		2
-#define ERROR_SHORT_FOUND	3
-#define ERROR_EEPROM_FULL	4
-#define ERROR_CRC_MISMATCH	5
+#ifdef DS2482_800
+#define TOTAL_CHANNELS			8
+#else
+#define TOTAL_CHANNELS			1
+#endif
 
 #define TEMP_C	0
 #define TEMP_F	1
+
+#define CONFIG_RES_SHIFT		>>5
+#define CONFIG_RES_9_BIT		0x1F
+#define CONFIG_RES_10_BIT		0x3F
+#define CONFIG_RES_11_BIT		0x5F
+#define CONFIG_RES_12_BIT		0x7F
+
+// error bits
+#define ERROR_TIMEOUT			0
+#define ERROR_CONFIG			1
+#define ERROR_CHANNEL			2
+#define ERROR_SEARCH			3
+
+#define ERROR_NO_DEVICE			4
+#define ERROR_SHORT_FOUND		5
+#define ERROR_CRC_MISMATCH		6
+#define ERROR_EEPROM_FULL		7
+
+
+
+
+
+
+
+//*************************************************************************************************
+//	Global Types
+//*************************************************************************************************
 
 typedef struct Device
 {
@@ -120,52 +142,51 @@ typedef struct Scratch
 
 
 
+//*************************************************************************************************
+//	Class Definition
+//*************************************************************************************************
+
 class DS2482
 {
 	public:
 		DS2482(uint8_t addr);
 		
-		uint8_t getError(void);
+		uint8_t error_flags;
 		
-		
-		uint8_t wireReset(void);
-		
-		uint8_t wireWrite(uint8_t);
+		void wireReset(void);
+		void wireWrite(uint8_t);
 		uint8_t wireRead(void);
 		
-		uint8_t wireWriteBit(uint8_t);
+		void wireWriteBit(uint8_t);
 		uint8_t wireReadBit(void);
-		uint8_t wireTriplet(uint8_t);
 		
+		void wireTriplet(uint8_t);
 		
-		uint8_t romRead(uint8_t*);
-		uint8_t romMatch(uint8_t*);
-		uint8_t romSkip(void);
+		void romRead(uint8_t*);
+		void romMatch(uint8_t*);
+		void romSkip(void);
+		void romSearch(uint8_t*, uint8_t);
 		
-		uint8_t romSearch(uint8_t*, uint8_t);
-		uint8_t romSearch(uint8_t*);
-		
-		
+		uint8_t tempPowerMode(void);
 		uint8_t tempPowerMode(Device&);
-		uint8_t tempPowerModeAll(void);
 		
-		uint8_t tempStoreEE(Device&);
-		uint8_t tempLoadEE(Device&);
+		void tempStoreEE(Device&);
+		void tempLoadEE(Device&);
 		
-		uint8_t tempConversion(Device&);
-		uint8_t tempConversionAll(uint8_t, uint8_t);
+		void tempConversion(uint8_t, uint8_t);
+		void tempConversion(Device&);
 		
-		uint8_t tempWriteScratchpad(Device&, Scratch&);
-		uint8_t tempReadScratchpad(Device&, Scratch&);
+		void tempWriteScratchpad(Device&, Scratch&);
+		void tempReadScratchpad(Device&, Scratch&);
 		
-		uint8_t tempSearch(Device&, Scratch&);
+		void tempSearch(Device&, Scratch&);
 		
 		
 		void tempSensorReset(void);
 		uint8_t tempSensorTotal(void);
 		
-		uint8_t tempSensorLoad(uint8_t, Device&);
-		uint8_t tempSensorStore(uint8_t, Device&);
+		void tempSensorLoad(uint8_t, Device&);
+		void tempSensorStore(uint8_t, Device&);
 		
 		uint8_t tempSensorVarify(uint8_t, Device&);
 		uint8_t tempSensorFind(Device&, Scratch&);
@@ -180,20 +201,21 @@ class DS2482
 		uint8_t _config;
 		uint8_t _status;
 		
-		uint8_t _error;
-		
 		uint8_t search_rom[8];
 		uint8_t searchLast;
 		uint8_t searchDone;
 		
 		uint8_t eepromTotal;
 		
-		void chipReset(void);
-		void chipBusy(uint8_t);
+		void _reset(void);
 		
-		uint8_t chipRegister(uint8_t);
-		uint8_t chipConfigure(uint8_t);
-		uint8_t chipChannel(uint8_t);
+		uint8_t _getRegister(uint8_t);
+		
+		void _busy(uint8_t);
+		void _setConfig(uint8_t);
+		#ifdef DS2482_800
+		void _setChannel(uint8_t);
+		#endif
 };
 
 #endif

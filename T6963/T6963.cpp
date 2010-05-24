@@ -47,6 +47,9 @@
 						partial clear written forward or backward
 						partial string written forward or backward
 						similar text(x, y) textTo(dx, dy) to functions above
+		2010/05/22	modified clear functions
+					changed delay function to one that does not use timers
+					added macros for writing to controller chip
 	
 	All works by ITM are released under the creative commons attribution share alike license
 		http://creativecommons.org/licenses/by-sa/3.0/
@@ -55,40 +58,27 @@
 */
 
 
-#include <WProgram.h>
-
-extern "C"{
-	#include <inttypes.h>
-	#include <avr/io.h>
-	#include <avr/pgmspace.h>
-	#include <util/delay.h>
-}
+//*************************************************************************************************
+//	Libraries
+//*************************************************************************************************
 
 #include "T6963.h"
-#include "T6963_Commands.h"
 
 
-#if defined(__AVR_ATmega644P__)
+//*************************************************************************************************
+//	Device Definitions
+//*************************************************************************************************
 
-// data port
-#define GLCD_DATA_PORT		PORTB
-#define GLCD_DATA_PIN		PINB
-#define GLCD_DATA_DDR		DDRB
+//#define GLCD_SPLIT_PORT
 
-// control port
-#define GLCD_CTRL_PORT		PORTD
-#define GLCD_CTRL_PIN		PIND
-#define GLCD_CTRL_DDR		DDRD
 
-// control signals
-#define GLCD_WR			2
-#define GLCD_RD			3
-#define GLCD_CE			4
-#define GLCD_CD			5
 
-#else
 
-#define GLCD_DATA_SPLIT		1
+//*************************************************************************************************
+//	Split data port
+//*************************************************************************************************
+
+#if defined GLCD_SLIT_PORT
 
 // data port
 #define GLCD_DATA_PORT1 	PORTC
@@ -105,6 +95,13 @@ extern "C"{
 #define GLCD_DATA_RSHIFT2	<<0
 #define GLCD_DATA_MASK2		0xF0
 
+// data port macros
+#define GLCD_SET_PORT_MODE_READ		(GLCD_DATA_DDR1 &= !GLCD_DATA_MASK1, GLCD_DATA_DDR2 &= ~GLCD_DATA_MASK2)
+#define GLCD_SET_PORT_MODE_WRITE	(GLCD_DATA_DDR1 |= GLCD_DATA_MASK1, GLCD_DATA_DDR2 |= GLCD_DATA_MASK2)
+
+#define GLCD_ReadPort(data)			(data = ((GLCD_DATA_PIN1 & GLCD_DATA_MASK1) GLCD_DATA_RSHIFT1), data |= ((GLCD_DATA_PIN2 & GLCD_DATA_MASK2) GLCD_DATA_RSHIFT2))
+#define GLCD_WritePort(data)		(GLCD_DATA_PORT1 &= ~GLCD_DATA_MASK1, GLCD_DATA_PORT1 |= (data GLCD_DATA_SHIFT1), GLCD_DATA_PORT2 &= ~GLCD_DATA_MASK2, GLCD_DATA_PORT2 |= (data GLCD_DATA_SHIFT2))
+
 // control port
 #define GLCD_CTRL_PORT		PORTB
 #define GLCD_CTRL_PIN		PINB
@@ -116,7 +113,79 @@ extern "C"{
 #define GLCD_CE				1
 #define GLCD_CD				2
 
+
+
+
+//*************************************************************************************************
+//	Single data port
+//*************************************************************************************************
+
+#else
+
+// data port
+#define GLCD_DATA_PORT		PORTB
+#define GLCD_DATA_PIN		PINB
+#define GLCD_DATA_DDR		DDRB
+
+// data port macros
+#define GLCD_SET_PORT_MODE_READ		(GLCD_DATA_DDR = 0)
+#define GLCD_SET_PORT_MODE_WRITE	(GLCD_DATA_DDR = 0xFF)
+
+#define GLCD_ReadPort(data)			(data = GLCD_DATA_PIN)
+#define GLCD_WritePort(data)		(GLCD_DATA_PORT = data)
+
+// control port
+#define GLCD_CTRL_PORT		PORTD
+#define GLCD_CTRL_PIN		PIND
+#define GLCD_CTRL_DDR		DDRD
+
+// control bits
+#define GLCD_WR			2
+#define GLCD_RD			3
+#define GLCD_CE			4
+#define GLCD_CD			5
+
 #endif
+
+
+
+
+
+
+
+//*************************************************************************************************
+//	Macro definitions
+//*************************************************************************************************
+
+// control macros
+#define GLCD_CONTROL_RESET			(GLCD_CTRL_PORT |= (1 << GLCD_CE) | (1 << GLCD_RD) | (1 << GLCD_WR) | (1 << GLCD_CD))
+#define GLCD_CONTROL_READ_STATUS	(GLCD_CTRL_PORT &= ~((1 << GLCD_CE) | (1 << GLCD_RD)))
+#define GLCD_CONTROL_READ_DATA		(GLCD_CTRL_PORT &= ~((1 << GLCD_CE) | (1 << GLCD_RD) | (1 << GLCD_CD)))
+#define GLCD_CONTROL_WRITE_COMMAND	(GLCD_CTRL_PORT &= ~((1 << GLCD_CE) | (1 << GLCD_WR)))
+#define GLCD_CONTROL_WRITE_DATA		(GLCD_CTRL_PORT &= ~((1 << GLCD_CE) | (1 << GLCD_WR) | (1 << GLCD_CD)))
+
+
+#define GLCD_WriteWord(data, cmd)	(writeData(0xFF & data), writeData(data >> 8), writeCommand(cmd))
+#define GLCD_SetAddress(addr)		GLCD_WriteWord(addr, T6963_SET_ADDRESS_POINTER)
+
+
+// other macros
+#ifndef constrain
+#define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
+#endif
+
+#ifndef min
+#define min(a,b) ((a)<(b)?(a):(b))
+#endif
+
+
+
+
+
+
+//*************************************************************************************************
+//	Global functions
+//*************************************************************************************************
 
 //-------------------------------------------------------------------------------------------------
 //
@@ -130,26 +199,16 @@ extern "C"{
 
 void n_delay(void)
 {
-	volatile byte i;
+	volatile uint8_t i;
 	for(i = 0; i < (F_CPU/1000000); i++)
 	{
 		asm("nop");
 	}
 }
 
-//-------------------------------------------------------------------------------------------------
-//
-// Constructor
-//
-//	Input	none
-//
-//	Output	none
-//	
-//-------------------------------------------------------------------------------------------------
 
-T6963::T6963()
-{
-}
+
+
 
 
 
@@ -160,9 +219,7 @@ T6963::T6963()
 
 
 //*************************************************************************************************
-//
-//		Basic I/O Functions
-//
+//	Basic I/O Functions
 //*************************************************************************************************
 
 //-------------------------------------------------------------------------------------------------
@@ -179,31 +236,14 @@ uint8_t T6963::readStatus(void)
 {
 	uint8_t tmp;
 	
-	#if defined(GLCD_DATA_SPLIT)
-	GLCD_DATA_DDR1 &= ~GLCD_DATA_MASK1;
-	GLCD_DATA_DDR2 &= ~GLCD_DATA_MASK2;
-	#else
-	GLCD_DATA_DDR = 0x00;
-	#endif
+	GLCD_SET_PORT_MODE_READ;
+	GLCD_CONTROL_READ_STATUS;
 	
-	GLCD_CTRL_PORT &= ~((1 << GLCD_RD) | (1 << GLCD_CE));
 	n_delay();
+	GLCD_ReadPort(tmp);
 	
-	#if defined(GLCD_DATA_SPLIT)
-	tmp = ((GLCD_DATA_PIN1 & GLCD_DATA_MASK1) GLCD_DATA_RSHIFT1);
-	tmp |= ((GLCD_DATA_PIN2 & GLCD_DATA_MASK2) GLCD_DATA_RSHIFT2);
-	#else
-	tmp = GLCD_DATA_PIN;
-	#endif
-	
-	GLCD_CTRL_PORT |= (1 << GLCD_RD) | (1 << GLCD_CE);
-	
-	#if defined(GLCD_DATA_SPLIT)
-	GLCD_DATA_DDR1 |= GLCD_DATA_MASK1;
-	GLCD_DATA_DDR2 |= GLCD_DATA_MASK2;
-	#else
-	GLCD_DATA_DDR = 0xFF;
-	#endif
+	GLCD_CONTROL_RESET;
+	GLCD_SET_PORT_MODE_WRITE;
 	
 	return tmp;
 }
@@ -224,31 +264,14 @@ uint8_t T6963::readData(void)
 	
 	while(!(readStatus() & 0x03));
 	
-	#if defined(GLCD_DATA_SPLIT)
-	GLCD_DATA_DDR1 &= ~GLCD_DATA_MASK1;
-	GLCD_DATA_DDR2 &= ~GLCD_DATA_MASK2;
-	#else
-	GLCD_DATA_DDR = 0x00;
-	#endif
+	GLCD_SET_PORT_MODE_READ;
+	GLCD_CONTROL_READ_DATA;
 	
-	GLCD_CTRL_PORT &= ~((1 << GLCD_RD) | (1 << GLCD_CE) | (1 << GLCD_CD));
 	n_delay();
+	GLCD_ReadPort(tmp);
 	
-	#if defined(GLCD_DATA_SPLIT)
-	tmp = ((GLCD_DATA_PIN1 & GLCD_DATA_MASK1) GLCD_DATA_RSHIFT1);
-	tmp |= ((GLCD_DATA_PIN2 & GLCD_DATA_MASK2) GLCD_DATA_RSHIFT2);
-	#else
-	tmp = GLCD_DATA_PIN;
-	#endif
-	
-	GLCD_CTRL_PORT |= (1 << GLCD_RD) | (1 << GLCD_CE) | (1 << GLCD_CD);
-	
-	#if defined(GLCD_DATA_SPLIT)
-	GLCD_DATA_DDR1 |= GLCD_DATA_MASK1;
-	GLCD_DATA_DDR2 |= GLCD_DATA_MASK2;
-	#else
-	GLCD_DATA_DDR = 0xFF;
-	#endif
+	GLCD_CONTROL_RESET;
+	GLCD_SET_PORT_MODE_WRITE;
 	
 	return tmp;
 }
@@ -267,18 +290,12 @@ void T6963::writeCommand(uint8_t command)
 {
 	while(!(readStatus() & 0x03));
 	
-	#if defined(GLCD_DATA_SPLIT)
-	GLCD_DATA_PORT1 &= ~GLCD_DATA_MASK1;
-	GLCD_DATA_PORT1 |= (command GLCD_DATA_SHIFT1);
-	GLCD_DATA_PORT2 &= ~GLCD_DATA_MASK2;
-	GLCD_DATA_PORT2 |= (command GLCD_DATA_SHIFT2);
-	#else
-	GLCD_DATA_PORT = command;
-	#endif
+	GLCD_WritePort(command);
+	GLCD_CONTROL_WRITE_COMMAND;
 	
-	GLCD_CTRL_PORT &= ~((1 << GLCD_WR) | (1 << GLCD_CE));
 	n_delay();
-	GLCD_CTRL_PORT |= (1 << GLCD_WR) | (1 << GLCD_CE);
+	
+	GLCD_CONTROL_RESET;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -295,18 +312,12 @@ void T6963::writeData(uint8_t data)
 {
 	while(!(readStatus() & 0x03));
 	
-	#if defined(GLCD_DATA_SPLIT)
-	GLCD_DATA_PORT1 &= ~GLCD_DATA_MASK1;
-	GLCD_DATA_PORT1 |= (data GLCD_DATA_SHIFT1);
-	GLCD_DATA_PORT2 &= ~GLCD_DATA_MASK2;
-	GLCD_DATA_PORT2 |= (data GLCD_DATA_SHIFT2);
-	#else
-	GLCD_DATA_PORT = data;
-	#endif
+	GLCD_WritePort(data);
+	GLCD_CONTROL_WRITE_DATA;
 	
-	GLCD_CTRL_PORT &= ~((1 << GLCD_WR) | (1 << GLCD_CE) | (1 << GLCD_CD));
 	n_delay();
-	GLCD_CTRL_PORT |= (1 << GLCD_WR) | (1 << GLCD_CE) | (1 << GLCD_CD);
+	
+	GLCD_CONTROL_RESET;
 }
 
 
@@ -378,9 +389,10 @@ void T6963::setDisplay(uint8_t settings)
 
 void T6963::setAddress(void)
 {
-	writeData(_address & 0xFF);
-	writeData(_address >> 8);
-	writeCommand(T6963_SET_ADDRESS_POINTER);
+	GLCD_SetAddress(_address);
+	//writeData(_address & 0xFF);
+	//writeData(_address >> 8);
+	//writeCommand(T6963_SET_ADDRESS_POINTER);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -395,9 +407,10 @@ void T6963::setAddress(void)
 
 void T6963::setText(void)
 {
-	writeData(_text & 0xFF);
-	writeData(_text >> 8);
-	writeCommand(T6963_SET_ADDRESS_POINTER);
+	GLCD_SetAddress(_text);
+	//writeData(_text & 0xFF);
+	//writeData(_text >> 8);
+	//writeCommand(T6963_SET_ADDRESS_POINTER);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -432,8 +445,7 @@ void T6963::setCursorPointer(uint8_t col, uint8_t row)
 
 void T6963::setCursorPattern(uint8_t cursor)
 {
-	cursor = constrain(cursor, 0, 7);
-	writeCommand(T6963_CURSOR_PATTERN_SELECT | cursor);
+	writeCommand(T6963_CURSOR_PATTERN_SELECT | constrain(cursor, 0, 7));
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1044,7 +1056,7 @@ void T6963::bresenLine(int16_t dx, int16_t dy)
 //
 //-------------------------------------------------------------------------------------------------
 
-void T6963::clear(void)
+void T6963::clearGraph(void)
 {
 	uint16_t tmp = _address;
 	
@@ -1665,7 +1677,6 @@ void T6963::clearCG(void)
 
 
 
-
 //-------------------------------------------------------------------------------------------------
 //
 // T6963 initalization
@@ -1678,61 +1689,82 @@ void T6963::clearCG(void)
 
 void T6963::init(void)
 {
-	#if defined(GLCD_DATA_SPLIT)
-	GLCD_DATA_DDR1 |= GLCD_DATA_MASK1;
-	GLCD_DATA_DDR2 |= GLCD_DATA_MASK2;
-	#else
-	GLCD_DATA_DDR = 0xFF;
-	#endif
-	
+	GLCD_SET_PORT_MODE_WRITE;
 	GLCD_CTRL_DDR |= (1 << GLCD_WR) | (1 << GLCD_RD) | (1 << GLCD_CE) | (1 << GLCD_CD);
-	GLCD_CTRL_PORT |= (1 << GLCD_WR) | (1 << GLCD_RD) | (1 << GLCD_CE) | (1 << GLCD_CD);
+	GLCD_CONTROL_RESET;
 	
 	//Set text area home address
-	writeData(MEM_TEXT_START & 0xFF);
-	writeData(MEM_TEXT_START >> 8);
-	writeCommand(T6963_SET_TEXT_HOME_ADDRESS);
+	GLCD_WriteWord(MEM_TEXT_START, T6963_SET_TEXT_HOME_ADDRESS);
 	
 	//Set text area width in mem
-	writeData(MEM_TEXT_WIDTH);
-	writeData(0x00);
-	writeCommand(T6963_SET_TEXT_AREA);
+	GLCD_WriteWord(MEM_TEXT_WIDTH, T6963_SET_TEXT_AREA);
 	
 	//Set graphic area home address
-	writeData(MEM_GRAPH_START & 0xFF);
-	writeData(MEM_GRAPH_START >> 8);
-	writeCommand(T6963_SET_GRAPHIC_HOME_ADDRESS);
+	GLCD_WriteWord(MEM_GRAPH_START, T6963_SET_GRAPHIC_HOME_ADDRESS);
 	
 	//Set graphic area width in mem
-	writeData(MEM_GRAPH_WIDTH);
-	writeData(0x00);
-	writeCommand(T6963_SET_GRAPHIC_AREA);
+	GLCD_WriteWord(MEM_GRAPH_WIDTH, T6963_SET_GRAPHIC_AREA);
 	
 	//Set Internal CGRAM address
-	writeData(MEM_CG_OFFSET);
-	writeData(0x00);
-	writeCommand(T6963_SET_OFFSET_REGISTER);
+	GLCD_WriteWord(MEM_CG_OFFSET, T6963_SET_OFFSET_REGISTER);
 	
-	setMode(T6963_MODE_XOR, T6963_MODE_INTERNAL);
-	setDisplay((1<<T6963_DISPLAY_TEXT) | (1<<T6963_DISPLAY_GRAPHIC) | (0<<T6963_DISPLAY_CURSOR) | (0<<T6963_DISPLAY_BLINK));
+	writeCommand(T6963_MODE_SET | T6963_MODE_INTERNAL | T6963_MODE_XOR);
+	writeCommand(T6963_DISPLAY_MODE | (1<<T6963_DISPLAY_TEXT) | (1<<T6963_DISPLAY_GRAPHIC) | (0<<T6963_DISPLAY_CURSOR) | (0<<T6963_DISPLAY_BLINK));
 	
 	_address = 0;
-	setAddress();
-	writeBlock(0x00, MEM_SIZE * 0x400);
 	_text = 0;
-	
 	_bit = 0;
 	_color = T6963_BIT_SET;
 	
+	clearText();
+	clearGraph();
+	clearCG();
+	
 	moveTo(0, 0);
 	
-	delay(100);
+	_delay_ms(100);
 }
 
-//-------------------------------------------------------------------------------------------------
-//
-// Preinstantiate Object
-//
-//-------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//*************************************************************************************************
+//	Constructor
+//*************************************************************************************************
+
+T6963::T6963()
+{
+}
+
+
+//*************************************************************************************************
+//	Preinstantiate Object
+//*************************************************************************************************
 
 T6963 LCD = T6963();
+
+
+
+
+
+
+
+

@@ -36,7 +36,7 @@ vertLine	KEYWORD2
 diagLine	KEYWORD2
 bresenLine	KEYWORD2
 
-clear	KEYWORD2
+clearGraph	KEYWORD2
 setColor	KEYWORD2
 move	KEYWORD2
 moveTo	KEYWORD2

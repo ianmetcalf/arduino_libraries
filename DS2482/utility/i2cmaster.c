@@ -12,14 +12,6 @@
 #include <i2cmaster.h>
 
 
-#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega8__) || defined(__AVR_ATmega328P__)
-
-#define TWI_PORT		PORTC
-#define TWI_SDA_BIT		4
-#define TWI_SCL_BIT		5
-
-#else 
-
 #if defined(__AVR_ATmega644P__)
 
 #define TWI_PORT		PORTC
@@ -28,9 +20,17 @@
 
 #else
 
-#define TWI_PIN PIND
-#define TWI_SDA_BIT 0
-#define TWI_SCL_BIT 1
+#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega8__) || defined(__AVR_ATmega328P__)
+
+#define TWI_PORT		PORTC
+#define TWI_SDA_BIT		4
+#define TWI_SCL_BIT		5
+
+#else 
+
+#define TWI_PORT		PIND
+#define TWI_SDA_BIT		0
+#define TWI_SCL_BIT		1
 
 #endif
 
