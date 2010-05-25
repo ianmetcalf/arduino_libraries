@@ -1,6 +1,8 @@
 /*
-	Library for a gui interface by Ian T Metcalf
-		tested with the Arduino IDE v18 on a Duemilanova 328
+	Library for a gui with touch interface by Ian T Metcalf
+		tested with the Arduino IDE v18 on:
+		- Arduino Duemilanova with an atmega328p
+		- Sanguino v1.0 with an atmega644p
 	
 	All works by ITM are released under the creative commons attribution share alike license
 		http://creativecommons.org/licenses/by-sa/3.0/

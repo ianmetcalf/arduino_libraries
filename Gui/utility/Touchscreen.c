@@ -80,10 +80,6 @@ ISR(TIMER0_COMPARE_MATCH_A_VECTOR)
 	
 	if (TestBit(ADC_CONTROL_AND_STATUS_REGISTER_A, ADC_ENABLE))
 	{
-		//++++++++++++++++++++++++++++++++++
-		//SetBit(PORTA, 5);
-		//++++++++++++++++++++++++++++++++++
-		
 	  // Measurement in Progress -> Timer0_Compare_Match_A_ISR serves to trigger ADC
 		
 		// Start ADC Conversion
@@ -131,10 +127,6 @@ ISR(TIMER0_COMPARE_MATCH_A_VECTOR)
 			
 			// Interface: New Event --> Sleep
 			SetBit(Touchscreen_Data.Flag_Register, FLAG_REGISTER_SLEEP);
-			
-			//++++++++++++++++++++++++++++++++++
-			//SetBit(PORTA, FLAG_REGISTER_SLEEP);
-			//++++++++++++++++++++++++++++++++++
 		}
 	}
 }
@@ -216,10 +208,6 @@ void Touchscreen_Init(void)
 	
 	// Interface: New Event --> Reset Condition
 	SetBit(Touchscreen_Data.Flag_Register, FLAG_REGISTER_START);
-	
-	//++++++++++++++++++++++++++++++++++
-	//SetBit(PORTA, FLAG_REGISTER_START);
-	//++++++++++++++++++++++++++++++++++
 }
 
 void Start_Measurement(void)
@@ -229,10 +217,6 @@ void Start_Measurement(void)
 	
 	// Interface: New Event --> Touch detected
 	SetBit(Touchscreen_Data.Flag_Register, FLAG_REGISTER_TOUCH);
-	
-	//++++++++++++++++++++++++++++++++++
-	//SetBit(PORTC, (FLAG_REGISTER_TOUCH + 4));
-	//++++++++++++++++++++++++++++++++++
 	
 	// ADC Initialization (Single-Ended)
 	// Enable / Interrupt / Prescaler
@@ -311,10 +295,6 @@ void Store_valid_Data(void)
 		// Interface: New Event --> New Coordinates Ready
 		SetBit(Touchscreen_Data.Flag_Register, FLAG_REGISTER_COORDINATES);
 		
-		//++++++++++++++++++++++++++++++++++
-		//SetBit(PORTC, (FLAG_REGISTER_COORDINATES + 4));
-		//++++++++++++++++++++++++++++++++++
-		
 		// Reset i_array
 		i_array=0;
 	}
@@ -374,10 +354,6 @@ void ADC_Measurement(void)
 				
 				// Interface: New Event --> End of Touch detected
 				SetBit(Touchscreen_Data.Flag_Register, FLAG_REGISTER_END);
-				
-				//++++++++++++++++++++++++++++++++++
-				//SetBit(PORTC, (FLAG_REGISTER_END + 4));
-				//++++++++++++++++++++++++++++++++++
 			}
 			
 			// Set ADC_ISR_Switch (Next: Reading_Low_Level)
@@ -457,10 +433,6 @@ void ADC_Measurement(void)
 				
 				// Interface: New Event --> End of Touch detected
 				SetBit(Touchscreen_Data.Flag_Register, FLAG_REGISTER_END);
-				
-				//++++++++++++++++++++++++++++++++++
-				//SetBit(PORTC, (FLAG_REGISTER_END + 4));
-				//++++++++++++++++++++++++++++++++++
 			}
 			
 			// Set ADC_ISR_Switch (Next: Reading_Low_Level)
