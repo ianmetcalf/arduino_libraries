@@ -1,10 +1,9 @@
 #include <T6963.h>
 #include <DS2482.h>
+#include <DS18B20.h>
 
 #define RELAY_PORT_INIT  (DDRA |= 0xF0, DDRC |= 0xF0)
 #define RelayPort(data)  (PORTC &= 0x0F, PORTA &= 0x0F, PORTC |= data << 4, PORTA |= data & 0xF0)
-
-DS2482 bridge = DS2482(0);
 
 Device device;
 Scratch scratchpad;
@@ -36,7 +35,7 @@ byte power;
 void showErrors(void)
 {
   LCD.textTo(8, 15);
-  if (bridge.error_flags == 0)
+  if (ds2482.error_flags == 0)
   {
     LCD.text("No Errors");
   }
@@ -44,7 +43,7 @@ void showErrors(void)
   {
     LCD.text("         ");
     LCD.text(-9, 0);
-    LCD.text(itoa(bridge.error_flags, strBuffer, 16));
+    LCD.text(itoa(ds2482.error_flags, strBuffer, 16));
   }
 }
 
@@ -52,9 +51,11 @@ void setup()
 {
   RELAY_PORT_INIT;
   LCD.init();
-  bridge.init();
   
-  totalDevices = bridge.tempSensorTotal();
+  ds2482.init(0);
+  dsTemp.init();
+  
+  totalDevices = dsTemp.totalSensors();
   
   LCD.textTo(1, 1);
   LCD.text("Devices:");
@@ -68,9 +69,9 @@ void setup()
   
   for (count = 1; count <= totalDevices; count++)
   {
-    bridge.tempSensorLoad(count, device);
+    dsTemp.loadSensor(count, device);
     
-    if (bridge.tempSensorVarify(count, device))
+    if (dsTemp.varifySensor(count, device))
     {
       LCD.textTo(2, 2 + count);
       LCD.text("Sensor ");
@@ -87,7 +88,7 @@ void setup()
     {
       LCD.textTo(15, 1);
       LCD.text("Resetting Sensors...");
-      bridge.tempSensorReset();
+      dsTemp.resetSensors();
       totalDevices = 0;
     }
     
@@ -97,16 +98,16 @@ void setup()
   LCD.textTo(15, 1);
   LCD.text("Finding Sensors...  ");
   
-  while(bridge.tempSensorFind(device, scratchpad))
+  while (dsTemp.findSensor(device, scratchpad))
   {
     if (scratchpad.config != CONFIG_RES_12_BIT)
     {
       scratchpad.config = CONFIG_RES_12_BIT;
-      bridge.tempWriteScratchpad(device, scratchpad);
+      dsTemp.writeScratchpad(device, scratchpad);
       device.config.resolution = (scratchpad.config CONFIG_RES_SHIFT) & 0x03;
     }
     
-    bridge.tempSensorStore(totalDevices + 1, device);
+    dsTemp.storeSensor(totalDevices + 1, device);
     totalDevices++;
     
     LCD.textTo(2, 2 + totalDevices);
@@ -133,9 +134,9 @@ void loop()
   {
     uint16_t frac;
     
-    bridge.tempSensorLoad(count, device);
-    bridge.tempConversion(device);
-    bridge.tempReadScratchpad(device, scratchpad);
+    dsTemp.loadSensor(count, device);
+    dsTemp.startConversion(device, 1);
+    dsTemp.readScratchpad(device, scratchpad);
     
     frac = (scratchpad.temp[TEMP_F] & 0x0F) * 625;
     

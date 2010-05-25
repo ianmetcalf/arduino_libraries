@@ -1,11 +1,11 @@
 /*
-	Library for the DS2484 OneWire controller by Ian T Metcalf
+	Library for the DS18B20 OneWire temperature sensor by Ian T Metcalf
 		tested with the Arduino IDE v18 on:
 		- Arduino Duemilanova with an atmega328p
 		- Sanguino v1.0 with an atmega644p
 	
-	Configured for the DS2482-800 onewire bridge w/ 8 channels
-		http://www.maxim-ic.com/quick_view2.cfm/qv_pk/4338
+	Configured for the DS18B20 onewire temperature sensor
+		http://www.maxim-ic.com/quick_view2.cfm?qv_pk=2812
 	
 	Based on the library written by Paeae Technologies
 		http://github.com/paeaetech/paeae
@@ -53,8 +53,8 @@
 */
 
 
-#ifndef DS2482_h
-#define DS2482_h
+#ifndef DS18B20_h
+#define DS18B20_h
 
 
 //*************************************************************************************************
@@ -64,28 +64,30 @@
 extern "C"
 {
 	#include <inttypes.h>
+	#include <avr/eeprom.h>
 	#include <util/delay.h>
 	#include <util/crc16.h>
-	#include "utility/i2cmaster.h"
 }
 
-#include "DS2482_Commands.h"
+#include <DS2482.h>
+#include "DS18B20_Commands.h"
 
 
 //*************************************************************************************************
 //	Global Definitions
 //*************************************************************************************************
 
-#define DS2482_800
+#define DS18B20_EEPROM_MAX_ALLOC	(E2END >> 1)
 
+#define TEMP_C	0
+#define TEMP_F	1
 
-#define DS2482_I2C_ADDRESS 			0x18
+#define CONFIG_RES_SHIFT		>>5
+#define CONFIG_RES_9_BIT		0x1F
+#define CONFIG_RES_10_BIT		0x3F
+#define CONFIG_RES_11_BIT		0x5F
+#define CONFIG_RES_12_BIT		0x7F
 
-#ifdef DS2482_800
-#define DS2482_TOTAL_CHANNELS		8
-#else
-#define DS2482_TOTAL_CHANNELS		1
-#endif
 
 // error bits
 #ifndef ERROR_FLAGS
@@ -108,57 +110,68 @@ extern "C"
 
 
 
+//*************************************************************************************************
+//	Global Types
+//*************************************************************************************************
+
+typedef struct Device
+{
+	uint8_t addr[8];
+	struct {
+		uint8_t powered		:1;
+		uint8_t channel		:3;
+		uint8_t resolution	:2;
+	} config;
+} DEVICE;
+
+typedef struct Scratch
+{
+	int16_t temp[2];
+	uint8_t alarmHigh;
+	uint8_t alarmLow;
+	uint8_t config;
+} SCRATCH;
+
+
+
 
 //*************************************************************************************************
 //	Class Definition
 //*************************************************************************************************
 
-class DS2482
+class DS18B20
 {
 	public:
-		DS2482();
+		DS18B20();
 		
-		uint8_t error_flags;
-		uint8_t searchDone;
+		void startConversion(uint8_t, uint8_t, uint8_t);
+		void startConversion(Device&, uint8_t);
 		
-		void setConfig(uint8_t);
+		void writeScratchpad(Device&, Scratch&);
+		void readScratchpad(Device&, Scratch&);
 		
-		#ifdef DS2482_800
-		uint8_t setChannel(uint8_t);
-		#endif
+		void resetSensors(void);
+		uint8_t totalSensors(void);
 		
-		void wireReset(void);
-		void wireWrite(uint8_t);
-		uint8_t wireRead(void);
+		void loadSensor(uint8_t, Device&);
+		void storeSensor(uint8_t, Device&);
 		
-		void wireWriteBit(uint8_t);
-		uint8_t wireReadBit(void);
-		void wireTriplet(uint8_t);
+		uint8_t varifySensor(uint8_t, Device&);
+		uint8_t findSensor(Device&, Scratch&);
 		
-		void romRead(uint8_t*);
-		void romMatch(uint8_t*);
-		void romSkip(void);
-		void romSearch(uint8_t*, uint8_t);
-		
-		void init(uint8_t);
+		void init(void);
 		
 	private:
-		uint8_t _address;
-		uint8_t _status;
+		uint8_t eepromTotal;
 		
-		#ifdef DS2482_800
-		uint8_t _channel;
-		#endif
+		uint8_t powerMode(void);
+		uint8_t powerMode(Device&);
 		
-		uint8_t search_rom[8];
-		uint8_t searchLast;
-		
-		void _reset(void);
-		uint8_t _getRegister(uint8_t);
-		void _busy(uint8_t);
+		void storeSensorEE(Device&);
+		void loadSensorEE(Device&);
 		
 };
 
-extern DS2482 ds2482;
+extern DS18B20 dsTemp;
 
 #endif

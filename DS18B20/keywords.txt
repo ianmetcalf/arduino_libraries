@@ -6,42 +6,48 @@
 # Datatypes (KEYWORD1)
 #######################################
 
-DS2482	KEYWORD1
+DS18B20	KEYWORD1
+Device	KEYWORD1
+Scratch	KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
 #######################################
 
-error_flags	KEYWORD2
-searchDone	KEYWORD2
+startConversion	KEYWORD2
 
-setConfig	KEYWORD2
-setChannel	KEYWORD2
+writeScratchpad	KEYWORD2
+readScratchpad	KEYWORD2
 
-wireReset	KEYWORD2
-wireWrite	KEYWORD2
-wireRead	KEYWORD2
+resetSensors	KEYWORD2
+totalSensors	KEYWORD2
 
-wireWriteBit	KEYWORD2
-wireReadBit	KEYWORD2
-wireTriplet	KEYWORD2
+loadSensor	KEYWORD2
+storeSensor	KEYWORD2
 
-romRead	KEYWORD2
-romMatch	KEYWORD2
-romSkip	KEYWORD2
-romSearch	KEYWORD2
+varifySensor	KEYWORD2
+findSensor	KEYWORD2
 
 init	KEYWORD2
 
 #######################################
 # Instances (KEYWORD2)
-#######################################
+#######################################	
 
-ds2482	KEYWORD2
+dsTemp	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)
 #######################################
+
+TEMP_C	LITERAL1
+TEMP_F	LITERAL1
+
+CONFIG_RES_SHIFT	LITERAL1
+CONFIG_RES_9_BIT	LITERAL1
+CONFIG_RES_10_BIT	LITERAL1
+CONFIG_RES_11_BIT	LITERAL1
+CONFIG_RES_12_BIT	LITERAL1
 
 ERROR_TIMEOUT	LITERAL1
 ERROR_CONFIG	LITERAL1
