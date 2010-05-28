@@ -15,6 +15,9 @@ Scratch	KEYWORD1
 #######################################
 
 temps	KEYWORD2
+isr_flags	KEYWORD2
+
+polling	KEYWORD2
 
 startConversion	KEYWORD2
 conversionDelay	KEYWORD2
@@ -62,6 +65,7 @@ ERROR_SHORT_FOUND	LITERAL1
 ERROR_CRC_MISMATCH	LITERAL1
 ERROR_EEPROM_FULL	LITERAL1
 
-
+ISR_FLAG_UNITS	LITERAL1
+ISR_FLAG_NEW_TEMPS	LITERAL1
 
 
