@@ -66,10 +66,6 @@ ISR(PIN_CHANGE_VECTOR)
 	
 	// Reset Sleep Counter (--> Debounce)
 	Counter_Sleep = 0;
-	
-	//++++++++++++++++++++++++++++++++++
-	//SetBit(PORTA, 4);
-	//++++++++++++++++++++++++++++++++++
 }
 
 #pragma vector = TIMER0_COMPARE_MATCH_A_VECTOR 

@@ -44,7 +44,8 @@
 		2010/04/30	wrote functions for the DS18B20 temperature sensor
 		2010/04/30	wrote sensor management functions to find and store temp sensors in eeprom
 		2010/05/24	rewrote error handleing, use flags instead of return values
-		2010/05/24	seperated DS18B20 library from DS2482 library
+		2010/05/25	seperated DS18B20 library from DS2482 library
+		2010/05/27	added ISR polling
 	
 	All works by ITM are released under the creative commons attribution share alike license
 		http://creativecommons.org/licenses/by-sa/3.0/
@@ -58,6 +59,121 @@
 //*************************************************************************************************
 
 #include "DS18B20.h"
+
+
+
+//*************************************************************************************************
+//	Global Definitions
+//*************************************************************************************************
+
+// Timer1 Settings (1s Interval)
+#define TIMER1_PRESCALER								5			// :1024 --> 15.625kHz
+#define TIMER1_INITIAL_VALUE_COMPARE_MATCH_A			15624		// interrupt every 1 second
+#define TIMER1_CONVERSION_COMPARE						10			// time between conversions in seconds
+
+
+//*************************************************************************************************
+//	Device Definitions
+//*************************************************************************************************
+
+// Interrupt Vector Definition
+#define TIMER1_COMPARE_MATCH_A_VECTOR					TIMER1_COMPA_vect
+#define TIMER1_COMPARE_MATCH_B_VECTOR					TIMER1_COMPB_vect
+
+// Register Definitions for Timer 1
+#define TIMER1_INTERRUPT_MASK_REGISTER					TIMSK1
+#define TIMER1_INTERRUPT_FLAG_REGISTER					TIFR1
+#define TIMER1_OUTPUT_COMPARE_REGISTER_A				OCR1A
+#define TIMER1_OUTPUT_COMPARE_REGISTER_B				OCR1B
+#define TIMER1_CONTROL_REGISTER_A						TCCR1A
+#define TIMER1_CONTROL_REGISTER_B						TCCR1B
+#define TIMER1_CONTROL_REGISTER_C						TCCR1C
+
+// Bit Definitions for Timer 1
+#define TIMER1_CLOCK_SELECT								CS10
+#define TIMER1_OUTPUT_COMPARE_A_INT_ENABLE				OCIE1A
+#define TIMER1_OUTPUT_COMPARE_B_INT_ENABLE				OCIE1B
+#define TIMER1_OUTPUT_COMPARE_A_MATCH_FLAG				OCF1A
+#define TIMER1_OUTPUT_COMPARE_B_MATCH_FLAG				OCF1B
+#define TIMER1_WAVEFORM_GENERATION_MODE_L				WGM10
+#define TIMER1_WAVEFORM_GENERATION_MODE_H				WGM12
+
+
+//*************************************************************************************************
+//	Interrupts
+//*************************************************************************************************
+
+#ifdef DS18B20_ISR_POLLING
+ISR(TIMER1_COMPARE_MATCH_A_VECTOR)
+{
+	static uint8_t isrCount = TIMER1_CONVERSION_COMPARE;
+	static uint8_t current = 0;
+	
+	if (isrCount < TIMER1_CONVERSION_COMPARE)
+	{
+		isrCount++;
+	}
+	else
+	{
+		uint8_t totalSense;
+		
+		totalSense = dsTemp.totalSensors();
+		
+		if (current <= totalSense)
+		{
+			Device sensor;
+			Scratch scratch;
+			
+			if (current > 0)
+			{
+				dsTemp.loadSensor(current, sensor);
+				dsTemp.readScratchpad(sensor, scratch);
+				dsTemp.temps[current] = scratch.temp[(dsTemp.isr_flags & (TEMP_F << ISR_FLAG_UNITS)) ? TEMP_F : TEMP_C];
+			}
+			
+			current++;
+			
+			if (current <= totalSense)
+			{
+				dsTemp.loadSensor(current, sensor);
+				dsTemp.startConversion(sensor);
+			}
+		}
+		else
+		{
+			isrCount = 0;
+			current = 0;
+			
+			dsTemp.isr_flags |= (1 << ISR_FLAG_NEW_TEMPS);
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Set polling
+//
+//	Input	set: polling state
+//
+//	Output	none
+//
+//-------------------------------------------------------------------------------------------------
+
+void DS18B20::polling(uint8_t set)
+{
+	if (set)
+	{
+		// Start timer clock (CTC Mode)
+		TIMER1_CONTROL_REGISTER_B |= (TIMER1_PRESCALER << TIMER1_CLOCK_SELECT);
+	}
+	else
+	{
+		// Stop timer clock (CTC Mode)
+		TIMER1_CONTROL_REGISTER_B &= ~(TIMER1_PRESCALER << TIMER1_CLOCK_SELECT);
+	}
+}
+#endif
+
 
 
 
@@ -184,14 +300,12 @@ void DS18B20::loadSensorEE(Device &sensor)
 // Initiate temperature conversion for all devices on channel
 //
 //	Input	channel: channel to convert
-//			resolution: max resolution on channel
 //
 //	Output	none
 //
 //-------------------------------------------------------------------------------------------------
 
-
-void DS18B20::startConversion(uint8_t channel, uint8_t resolution, uint8_t delay)
+void DS18B20::startConversion(uint8_t channel)
 {
 	uint8_t powered;
 	
@@ -201,6 +315,12 @@ void DS18B20::startConversion(uint8_t channel, uint8_t resolution, uint8_t delay
 	
 	powered = powerMode();
 	
+	if (ds2482.error_flags & (1 << ERROR_NO_DEVICE))
+	{
+		ds2482.error_flags &= ~(1 << ERROR_NO_DEVICE);
+		return;
+	}
+	
 	ds2482.romSkip();
 	
 	if (!powered)
@@ -209,22 +329,9 @@ void DS18B20::startConversion(uint8_t channel, uint8_t resolution, uint8_t delay
 	}
 	
 	ds2482.wireWrite(DS18B20_CONVERT_TEMP);
-	
-	if (delay)
-	{
-		if (powered)
-		{
-			while(!ds2482.wireReadBit())
-			{
-				_delay_us(20);
-			}
-		}
-		else
-		{
-			_delay_ms(94 << resolution);
-		}
-	}
 }
+
+
 //-------------------------------------------------------------------------------------------------
 //
 // Initiate temperature conversion for device
@@ -235,7 +342,7 @@ void DS18B20::startConversion(uint8_t channel, uint8_t resolution, uint8_t delay
 //
 //-------------------------------------------------------------------------------------------------
 
-void DS18B20::startConversion(Device &sensor, uint8_t delay)
+void DS18B20::startConversion(Device &sensor)
 {
 	if (sensor.addr[0] != DS18B20_FAMILY_CODE)
 	{
@@ -254,20 +361,32 @@ void DS18B20::startConversion(Device &sensor, uint8_t delay)
 	}
 	
 	ds2482.wireWrite(DS18B20_CONVERT_TEMP);
-	
-	if (delay)
+}
+
+
+//-------------------------------------------------------------------------------------------------
+//
+// Wait for temperature conversion to complete
+//
+//	Input	powered: is device powered
+//			resolution: max resolution on channel
+//
+//	Output	none
+//
+//-------------------------------------------------------------------------------------------------
+
+void DS18B20::conversionDelay(uint8_t powered, uint8_t resolution)
+{
+	if (powered)
 	{
-		if (sensor.config.powered)
+		while(!ds2482.wireReadBit())
 		{
-			while(!ds2482.wireReadBit())
-			{
-				_delay_us(20);
-			}
+			_delay_us(20);
 		}
-		else
-		{
-			_delay_ms(94 << sensor.config.resolution);
-		}
+	}
+	else
+	{
+		_delay_ms(94 << resolution);
 	}
 }
 
@@ -659,12 +778,40 @@ uint8_t DS18B20::findSensor(Device &sensor, Scratch &scratch)
 
 void DS18B20::init(void)
 {
+	uint8_t count;
+	Device sensor;
+	
 	eepromTotal = eeprom_read_byte((const uint8_t*)E2END);
 	
 	if (eepromTotal > (DS18B20_EEPROM_MAX_ALLOC / sizeof(DEVICE)))
 	{
 		eepromTotal = 0;
 	}
+	
+	#ifdef DS18B20_ISR_POLLING
+	isr_flags = (TEMP_F << ISR_FLAG_UNITS);
+	
+	for (count = 0; count < DS18B20_BUFFER_SIZE; count++)
+	{
+		temps[count] = 0;
+	}
+	
+	// Timer1 Initialization (CTC Mode)
+	// Reset the registers for timer 1
+	TIMER1_CONTROL_REGISTER_A = 0;
+	TIMER1_CONTROL_REGISTER_C = 0;
+	
+	// Set Clear Timer on Compare Match A
+	TIMER1_CONTROL_REGISTER_B = (1 << TIMER1_WAVEFORM_GENERATION_MODE_H);
+	
+	// Set Output Compare Register A to a Defined Value
+	TIMER1_OUTPUT_COMPARE_REGISTER_A = TIMER1_INITIAL_VALUE_COMPARE_MATCH_A;
+	
+	// Enable Timer1 Compare Match A Interrupt
+	TIMER1_INTERRUPT_MASK_REGISTER = (1 << TIMER1_OUTPUT_COMPARE_A_INT_ENABLE);
+	
+	sei();
+	#endif
 }
 
 

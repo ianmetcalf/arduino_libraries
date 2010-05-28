@@ -44,7 +44,8 @@
 		2010/04/30	wrote functions for the DS18B20 temperature sensor
 		2010/04/30	wrote sensor management functions to find and store temp sensors in eeprom
 		2010/05/24	rewrote error handleing, use flags instead of return values
-		2010/05/24	seperated DS18B20 library from DS2482 library
+		2010/05/25	seperated DS18B20 library from DS2482 library
+		2010/05/27	added ISR polling
 	
 	All works by ITM are released under the creative commons attribution share alike license
 		http://creativecommons.org/licenses/by-sa/3.0/
@@ -65,6 +66,7 @@ extern "C"
 {
 	#include <inttypes.h>
 	#include <avr/eeprom.h>
+	#include <avr/interrupt.h> 
 	#include <util/delay.h>
 	#include <util/crc16.h>
 }
@@ -77,16 +79,20 @@ extern "C"
 //	Global Definitions
 //*************************************************************************************************
 
+#define DS18B20_ISR_POLLING
+#define DS18B20_BUFFER_SIZE			32
+
+
 #define DS18B20_EEPROM_MAX_ALLOC	(E2END >> 1)
 
-#define TEMP_C	0
-#define TEMP_F	1
+#define TEMP_C						0
+#define TEMP_F						1
 
-#define CONFIG_RES_SHIFT		>>5
-#define CONFIG_RES_9_BIT		0x1F
-#define CONFIG_RES_10_BIT		0x3F
-#define CONFIG_RES_11_BIT		0x5F
-#define CONFIG_RES_12_BIT		0x7F
+#define CONFIG_RES_SHIFT			>>5
+#define CONFIG_RES_9_BIT			0x1F
+#define CONFIG_RES_10_BIT			0x3F
+#define CONFIG_RES_11_BIT			0x5F
+#define CONFIG_RES_12_BIT			0x7F
 
 
 // error bits
@@ -104,6 +110,10 @@ extern "C"
 #define ERROR_EEPROM_FULL			7
 
 #endif
+
+// ISR flag bits
+#define ISR_FLAG_UNITS				0
+#define ISR_FLAG_NEW_TEMPS			7
 
 
 
@@ -144,8 +154,17 @@ class DS18B20
 	public:
 		DS18B20();
 		
-		void startConversion(uint8_t, uint8_t, uint8_t);
-		void startConversion(Device&, uint8_t);
+		#ifdef DS18B20_ISR_POLLING
+		volatile uint16_t temps[DS18B20_BUFFER_SIZE];
+		volatile uint8_t isr_flags;
+		
+		void polling(uint8_t);
+		#endif
+		
+		void startConversion(uint8_t);
+		void startConversion(Device&);
+		
+		void conversionDelay(uint8_t, uint8_t);
 		
 		void writeScratchpad(Device&, Scratch&);
 		void readScratchpad(Device&, Scratch&);

@@ -14,7 +14,10 @@ Scratch	KEYWORD1
 # Methods and Functions (KEYWORD2)
 #######################################
 
+temps	KEYWORD2
+
 startConversion	KEYWORD2
+conversionDelay	KEYWORD2
 
 writeScratchpad	KEYWORD2
 readScratchpad	KEYWORD2

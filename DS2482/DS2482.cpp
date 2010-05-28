@@ -44,7 +44,7 @@
 		2010/04/30	wrote functions for the DS18B20 temperature sensor
 		2010/04/30	wrote sensor management functions to find and store temp sensors in eeprom
 		2010/05/24	rewrote error handleing, use flags instead of return values
-		2010/05/24	seperated DS18B20 library from DS2482 library
+		2010/05/25	seperated DS18B20 library from DS2482 library
 	
 	All works by ITM are released under the creative commons attribution share alike license
 		http://creativecommons.org/licenses/by-sa/3.0/

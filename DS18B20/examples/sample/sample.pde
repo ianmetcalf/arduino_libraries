@@ -29,8 +29,6 @@ char *strRes[] =
 };
 
 int totalDevices;
-int count;
-byte power;
 
 void showErrors(void)
 {
@@ -49,6 +47,8 @@ void showErrors(void)
 
 void setup()
 {
+  uint8_t count;
+  
   RELAY_PORT_INIT;
   LCD.init();
   
@@ -123,19 +123,77 @@ void setup()
     
     showErrors();
   }
+  
+  LCD.textTo(10, 1);
+  LCD.text(itoa(totalDevices, strBuffer, 10));
+  
+  LCD.textTo(15, 1);
+  LCD.text("Getting Temps...    ");
+  
+  dsTemp.polling(1);
 }
 
 void loop()
 {
-  LCD.textTo(15, 1);
-  LCD.text("Getting Temps...    ");
+  uint8_t count;
   
-  for (count = 1; count <= totalDevices; count++)
+  if (dsTemp.isr_flags & (1 << ISR_FLAG_NEW_TEMPS))
   {
-    uint16_t frac;
+    dsTemp.isr_flags &= ~(1 << ISR_FLAG_NEW_TEMPS);
     
+    for (count = 1; count <= totalDevices; count++)
+    {
+      uint16_t temp, frac;
+      
+      cli();
+      temp = dsTemp.temps[count];
+      sei();
+      
+      LCD.textTo(24, 2 + count);
+      LCD.text(itoa(temp/16, strBuffer, 10));
+      LCD.text("      ");
+      LCD.text(-6, 0);
+      
+      frac = (temp & 0x0F) * 625;
+      
+      if (frac > 0)
+      {
+        LCD.text(".");
+        
+        if (frac == 625)
+        {
+          LCD.text("0625");
+        }
+        else
+        {
+          while (frac % 10 == 0)
+          {
+            frac /= 10;
+          }
+          
+          LCD.text(itoa(frac, strBuffer, 10));
+        }
+      }
+      
+      if (dsTemp.isr_flags & (TEMP_F << ISR_FLAG_UNITS))
+      {
+        LCD.text("F");
+      }
+      else
+      {
+        LCD.text("C");
+      }
+    }
+  }
+  showErrors();
+    
+      
+      
+    
+    /*
     dsTemp.loadSensor(count, device);
-    dsTemp.startConversion(device, 1);
+    dsTemp.startConversion(device);
+    dsTemp.conversionDelay(device.config.powered, device.config.resolution);
     dsTemp.readScratchpad(device, scratchpad);
     
     frac = (scratchpad.temp[TEMP_F] & 0x0F) * 625;
@@ -144,29 +202,7 @@ void loop()
     LCD.text(itoa(scratchpad.temp[TEMP_F]/16, strBuffer, 10));
     LCD.text("      ");
     LCD.text(-6, 0);
-    
-    if (frac > 0)
-    {
-      LCD.text(".");
-      
-      if (frac == 625)
-      {
-        LCD.text("0625");
-      }
-      else
-      {
-        while (frac % 10 == 0)
-        {
-          frac /= 10;
-        }
-        
-        LCD.text(itoa(frac, strBuffer, 10));
-      }
-    }
-    LCD.text("F");
-    
-    showErrors();
-  }
+    */
 }
 
 
