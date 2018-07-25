@@ -1,5 +1,5 @@
 /*
-	Library for the DS2484 OneWire controller by Ian T Metcalf
+	Library for the DS2482 OneWire controller by Ian T Metcalf
 		tested with the Arduino IDE v18 on:
 		- Arduino Duemilanova with an atmega328p
 		- Sanguino v1.0 with an atmega644p
